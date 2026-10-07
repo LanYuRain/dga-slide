@@ -22,3 +22,7 @@ desktop.ini
 .idea/
 *.swp
 *~
+
+# 建置產物（由 src/render.py 產生）
+src/build/
+src/.venv/

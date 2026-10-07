@@ -1,0 +1,1380 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>資工系期初系員大會</title>
+<!--
+  ================================================================
+  資工系 期初系員大會 · 流程簡報（Motion Deck）
+  ----------------------------------------------------------------
+  概念：「訊號沿著電路走線前進」——整晚是一塊電路板，
+        底部那條銅色走線（rail）就是今晚的流程，每個 via 節點是一個環節。
+        訊號（薄荷綠）走到哪，活動就進行到哪。
+  色彩：基板黑 #0b0c0b／銅箔 #e2693f（呼應家長日簡報的赭紅）／
+        訊號綠 #8ef0c4（「現在」）／米白 #f3eee4（文字）
+  字體：Noto Sans TC 900（中文標題）· Unbounded（數字與英文）·
+        JetBrains Mono（時間、標籤）· Noto Serif TC（引言）
+  動態：主曲線 expo（inOut 用於鏡頭／遮罩，out 用於抵達），beat = 0.1s
+        轉場家族共同母題 = 銅箔幾何：走線、via 節點、擦除、掃描線。
+  跨頁延續：
+    1. rail：議程頁的大時間軸 → 縮成每頁底部的進度走線（同一個元素）
+    2. 章節頁：從 rail 上的節點「展開」成新章節（iris）
+    3. 教授引言卡的照片 → 飛到原簡報個人頁上同一張照片的位置，原簡報從照片向外展開
+    4. 頒獎：懸念頁的名次數字 → 變形為揭曉頁的名次數字
+
+  分鏡（每頁靜止狀態要讀到的資訊）
+    01 簽到中          活動名稱、簽到提醒、距離 18:00 的分鐘數
+    02 開場            歡迎、活動名稱、主持人
+    03 開始之前        兩條規則：食物在場外、洗手間在樓梯旁
+    04 今晚的路線      180 分鐘、六個環節與時間（rail 主視覺）
+    05 章節 01         專題介紹 18:00–19:00、14 位教授
+    06 14 間實驗室     依領域分欄，編號 = 出場順序
+    07 原簡報封面      家長日簡報「師資介紹」
+    ×14 教授           引言卡（主持人介紹時）→ 原簡報個人頁 → 原簡報實驗室頁
+    謝謝老師           14 張照片、方向總結
+    章節 02 破冰 / 03 休息（倒數）/ 04 團康（時段表）/ 回 EB111
+    章節 05 交流 & 頒獎 → 頒獎 → 3、2、1 名（懸念 → 揭曉）→ 雞排 → 特殊獎
+    章節 06 大合照 → 謝謝大家・離場
+
+  操作：← → / 空白鍵 / 點擊 / 滑動 翻頁 · M 目錄跳頁 · E 頒獎設定（小隊與獎品）
+        B 待機畫面 · F 全螢幕 · 網址 #n 直接開第 n 頁
+  ================================================================
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700;900&family=Noto+Serif+TC:wght@600;900&family=Unbounded:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b0c0b;
+    --bg2: #151716;
+    --ink: #f3eee4;
+    --muted: #a19b90;
+    --dim: #5d5952;
+    --cu: #e2693f;
+    --cu-hi: #ff8d5e;
+    --cu-lo: #8a3a21;
+    --cu-a: rgba(226, 105, 63, .32);
+    --sig: #8ef0c4;
+    --sig-a: rgba(142, 240, 196, .2);
+    --line: rgba(243, 238, 228, .14);
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --sine: cubic-bezier(0.37, 0, 0.63, 1);
+    --f-tc: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+    --f-serif: "Noto Serif TC", "Noto Sans TC", "PMingLiU", serif;
+    --f-num: "Unbounded", "Noto Sans TC", sans-serif;
+    --f-mono: "JetBrains Mono", "Noto Sans TC", ui-monospace, monospace;
+    /*@@PHOTO_VARS@@*/
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: #000; color: var(--ink); overflow: hidden; }
+  body { font-family: var(--f-tc); -webkit-font-smoothing: antialiased; }
+  ul, ol { list-style: none; }
+  em, i { font-style: normal; }
+
+  /* ---------- 舞台 ---------- */
+  .stage {
+    position: absolute; left: 50%; top: 50%;
+    width: 1920px; height: 1080px;
+    transform: translate(-50%, -50%);
+    transform-origin: 50% 50%;
+    overflow: hidden; background: var(--bg);
+  }
+  .js:not(.ready) .stage { visibility: hidden; }
+
+  .slide {
+    position: absolute; inset: 0; padding: 120px 160px;
+    visibility: hidden; overflow: hidden; isolation: isolate;
+    background: var(--bg);
+  }
+  .slide.is-active { visibility: visible; }
+  html:not(.js) .slide:first-of-type { visibility: visible; }
+  /* 基板點陣 */
+  .slide::before {
+    content: ""; position: absolute; inset: -40px; z-index: -1; pointer-events: none;
+    background-image: radial-gradient(circle, rgba(243,238,228,.075) 1.5px, transparent 1.7px);
+    background-size: 40px 40px;
+    animation: grid-drift 14s var(--sine) infinite alternate;
+  }
+  @keyframes grid-drift { to { transform: translate(20px, -14px); } }
+
+  .embed { padding: 0; background: #000; }
+  .embed::before { display: none; }
+  .embed img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+  /* ---------- 轉場圖層 ---------- */
+  .wipe { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
+  .wipe i { position: absolute; top: 0; bottom: 0; left: -12%; right: -12%; transform: translateX(130%); }
+  .wipe i:nth-child(1) { background: var(--cu); }
+  .wipe i:nth-child(2) { background: var(--bg2); }
+  .wipe i:nth-child(3) { background: var(--cu-lo); }
+  .bars { position: absolute; inset: 0; z-index: 10; pointer-events: none; display: flex; }
+  .bars i { flex: 1; height: 100%; transform: scaleY(0); background: var(--cu); }
+  .bars i:nth-child(even) { background: var(--cu-lo); }
+  .scanline { position: absolute; top: 0; bottom: 0; left: 0; width: 6px; margin-left: -3px; z-index: 10;
+              background: var(--sig); box-shadow: 0 0 24px 6px rgba(142,240,196,.55), 0 0 80px 20px rgba(226,105,63,.35);
+              visibility: hidden; pointer-events: none; }
+  .ping { position: absolute; width: 140px; height: 140px; margin: -70px 0 0 -70px; border-radius: 50%; z-index: 7;
+          border: 2px solid var(--sig); visibility: hidden; pointer-events: none; }
+  .flash { position: absolute; inset: 0; z-index: 11; background: #fff8ee; visibility: hidden; pointer-events: none; }
+
+  /* ---------- RAIL：今晚的流程走線（跨頁共享元素） ---------- */
+  .rail { position: absolute; left: 0; top: 0; width: 1920px; height: 200px; z-index: 6;
+          pointer-events: none; visibility: hidden; }
+  .r-track, .r-lit { position: absolute; left: 160px; width: 1600px; top: 39px; height: 2px; transform-origin: 0 50%; }
+  .r-track { background: var(--cu-a); }
+  .r-lit { background: var(--sig); box-shadow: 0 0 12px rgba(142,240,196,.6); transform: scaleX(0); }
+  .r-node { position: absolute; top: 40px; width: 0; height: 0; }
+  .r-node .dot { position: absolute; left: -12px; top: -12px; width: 24px; height: 24px; border-radius: 50%;
+                 background: var(--bg); border: 2px solid var(--cu);
+                 transition: background .6s .35s, border-color .6s .35s, box-shadow .6s .35s; }
+  .r-node .dot::after { content: ""; position: absolute; inset: 5px; border-radius: 50%; background: var(--cu-a); transition: background .6s .35s; }
+  .r-node.past .dot { background: var(--cu); }
+  .r-node.past .dot::after { background: var(--bg); }
+  .r-node.now .dot { border-color: var(--sig); background: var(--bg); box-shadow: 0 0 0 7px var(--sig-a), 0 0 26px rgba(142,240,196,.7); }
+  .r-node.now .dot::after { background: var(--sig); }
+  .r-node .lbl { position: absolute; left: -170px; top: 34px; width: 340px; text-align: center; transform-origin: 50% 0; }
+  .r-node .t { display: block; font: 500 28px/1 var(--f-mono); color: var(--cu); letter-spacing: .04em; }
+  .r-node .n { display: block; margin-top: 16px; font: 700 42px/1.1 var(--f-tc); color: var(--ink); white-space: nowrap; }
+  .r-node .d { display: block; margin-top: 14px; font: 500 20px/1 var(--f-mono); color: var(--muted); letter-spacing: .14em; }
+  .r-node.now .t { color: var(--sig); }
+
+  /* ---------- HUD（只在操作者移動滑鼠時出現） ---------- */
+  .hud { position: fixed; inset: auto 0 0 0; height: 48px; pointer-events: none; z-index: 20;
+         font: 500 13px/48px var(--f-mono); letter-spacing: .1em; color: var(--muted); }
+  .hud .bar { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: rgba(255,255,255,.06); }
+  .hud .bar i { position: absolute; inset: 0; background: var(--cu); transform-origin: 0 50%;
+                transform: scaleX(0); transition: transform 1.1s var(--ease-out); }
+  .hud .count { position: absolute; right: 20px; bottom: 8px; padding: 0 14px; line-height: 30px; border-radius: 4px;
+                background: rgba(11,12,11,.86); border: 1px solid var(--line); font-variant-numeric: tabular-nums;
+                opacity: 0; transition: opacity .5s var(--ease-out); }
+  .hud .count b { color: var(--ink); font-weight: 500; margin-left: 12px; letter-spacing: .04em; }
+  .show-hud .hud .count { opacity: 1; }
+  .show-hud { cursor: default; }
+  html.js:not(.show-hud) { cursor: none; }
+
+  /* ---------- 細微動態 ---------- */
+  .idle-breathe { animation: idle-breathe 7s var(--sine) infinite alternate; }
+  .idle-drift   { animation: idle-drift 13s var(--sine) infinite alternate; }
+  .idle-float   { animation: idle-float 9s var(--sine) infinite alternate; }
+  .idle-glow    { animation: idle-glow 5s var(--sine) infinite alternate; }
+  .idle-spin    { animation: idle-spin 80s linear infinite; }
+  .idle-spin-r  { animation: idle-spin 110s linear infinite reverse; }
+  @keyframes idle-breathe { to { transform: scale(1.015); opacity: .86; } }
+  @keyframes idle-drift   { to { transform: translate(18px, -12px); } }
+  @keyframes idle-float   { to { transform: translateY(-5px); } }
+  @keyframes idle-glow    { to { opacity: .82; } }
+  @keyframes idle-spin    { to { transform: rotate(360deg); } }
+  /* 走線流光：裝飾線上的光點緩慢流動 */
+  .glint { stroke: var(--sig); stroke-width: 3; fill: none; stroke-linecap: round;
+           stroke-dasharray: 26 1600; animation: glint 9s linear infinite; opacity: .9; }
+  .glint.g2 { animation-duration: 13s; animation-delay: -5s; }
+  .glint.g3 { animation-duration: 11s; animation-delay: -8s; }
+  @keyframes glint { from { stroke-dashoffset: 1626; } to { stroke-dashoffset: 0; } }
+  .is-transitioning .slide, .is-transitioning .slide *, .is-transitioning .slide::before { animation-play-state: paused !important; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .slide *, .slide, .slide::before, .r-node .dot { animation: none !important; transition: none !important; }
+    .hud .bar i { transition: none; }
+  }
+
+  /* ================================================================
+     共用排版
+     ================================================================ */
+  .kick { font: 500 24px/1 var(--f-mono); letter-spacing: .26em; color: var(--cu); text-transform: uppercase; }
+  .kick .sig { color: var(--sig); }
+  .ln { display: block; overflow: hidden; padding: .04em 0 .1em; margin: -.04em 0 -.1em; }
+  .ln > span { display: block; }
+  .muted { color: var(--muted); }
+  .num { font-family: var(--f-num); font-weight: 800; letter-spacing: -.02em; }
+  .outline { color: transparent; -webkit-text-stroke: 2px var(--cu); }
+  .via { position: absolute; border-radius: 50%; border: 2px solid var(--cu-a); pointer-events: none; }
+  .via.dash { border-style: dashed; border-color: rgba(226,105,63,.28); }
+  .deco { position: absolute; pointer-events: none; }
+  .deco path, .deco line, .deco polyline { fill: none; stroke: var(--cu-a); stroke-width: 2; }
+  .deco circle { fill: var(--bg); stroke: var(--cu); stroke-width: 2; }
+
+  /* ---------- 01 簽到中 ---------- */
+  #s-wait .w-top { display: flex; justify-content: space-between; align-items: baseline; }
+  #s-wait .w-title { font: 900 52px/1 var(--f-tc); letter-spacing: .02em; }
+  #s-wait .w-title b { color: var(--cu); font-weight: 900; margin-right: 18px; }
+  #s-wait .w-state { margin-top: 170px; display: flex; align-items: center; gap: 44px; }
+  #s-wait .w-dot { width: 46px; height: 46px; border-radius: 50%; background: var(--sig);
+                   box-shadow: 0 0 0 14px var(--sig-a), 0 0 60px rgba(142,240,196,.6); }
+  #s-wait h1 { font: 900 250px/1 var(--f-tc); letter-spacing: .02em; }
+  #s-wait .w-hint { margin-top: 70px; font: 500 52px/1.4 var(--f-tc); }
+  #s-wait .w-hint b { color: var(--cu); font-weight: 700; }
+  #s-wait .cd { position: absolute; left: 160px; bottom: 120px; font: 500 36px/1 var(--f-mono); color: var(--muted); letter-spacing: .06em; }
+  #s-wait .cd b { font: 800 64px/1 var(--f-num); color: var(--ink); margin: 0 12px; vertical-align: -6px; }
+  #s-wait .deco { right: 0; top: 0; }
+
+  /* ---------- 02 開場 ---------- */
+  #s-cover .cv-kick { margin-top: 40px; }
+  #s-cover h1 { margin-top: 56px; font: 900 116px/1.06 var(--f-tc); }
+  #s-cover h1 .a { color: var(--cu); }
+  #s-cover h1 .b { font-size: 220px; letter-spacing: -.01em; }
+  #s-cover .cv-lead { margin-top: 56px; font: 600 50px/1.45 var(--f-serif); max-width: 1000px; }
+  #s-cover .cv-host { position: absolute; left: 160px; bottom: 110px; font: 500 28px/1 var(--f-mono); color: var(--muted); letter-spacing: .14em; }
+  #s-cover .cv-host b { color: var(--ink); font: 700 34px/1 var(--f-tc); letter-spacing: .12em; margin-left: 18px; }
+  #s-cover .deco { right: 0; top: 0; }
+  #s-cover .cv-ring { right: -260px; top: 120px; width: 900px; height: 900px; }
+  #s-cover .cv-ring2 { right: -140px; top: 240px; width: 660px; height: 660px; }
+
+  /* ---------- 03 開始之前 ---------- */
+  #s-notice h2 { font: 900 110px/1.1 var(--f-tc); }
+  #s-notice .nt-grid { position: absolute; left: 160px; right: 160px; top: 390px; display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+  #s-notice .nt { padding: 10px 70px 0 0; }
+  #s-notice .nt + .nt { padding: 10px 0 0 90px; border-left: 2px solid var(--cu-a); }
+  #s-notice .nt-head { display: flex; align-items: center; gap: 28px; }
+  #s-notice .nt-head b { font: 800 34px/1 var(--f-num); color: var(--cu); }
+  #s-notice .nt svg { width: 120px; height: 120px; fill: none; stroke: var(--ink); stroke-width: 3.2; stroke-linecap: round; stroke-linejoin: round; }
+  #s-notice .nt h3 { margin-top: 50px; font: 900 96px/1.15 var(--f-tc); }
+  #s-notice .nt h3 em { color: var(--cu); }
+  #s-notice .nt p { margin-top: 30px; font: 500 36px/1.5 var(--f-tc); color: var(--muted); }
+
+  /* ---------- 04 今晚的路線 ---------- */
+  #s-agenda .ag-row { display: flex; align-items: flex-end; gap: 70px; margin-top: 54px; }
+  #s-agenda .ag-big { display: flex; align-items: baseline; gap: 22px; }
+  #s-agenda .ag-big b { font: 800 230px/.86 var(--f-num); letter-spacing: -.04em; }
+  #s-agenda .ag-big span { font: 900 64px/1 var(--f-tc); color: var(--cu); }
+  #s-agenda .ag-side { padding-bottom: 10px; font: 600 44px/1.5 var(--f-serif); }
+  #s-agenda .ag-side i { color: var(--cu); margin: 0 12px; font-family: var(--f-mono); }
+  #s-agenda .ag-foot { position: absolute; left: 160px; right: 160px; bottom: 120px; display: flex; justify-content: space-between;
+                       font: 500 26px/1 var(--f-mono); color: var(--muted); letter-spacing: .08em; padding-top: 28px; border-top: 1px solid var(--line); }
+  #s-agenda .ag-foot b { color: var(--ink); font-weight: 500; }
+
+  /* ---------- 章節頁 ---------- */
+  .divider .dv-num { position: absolute; left: 150px; top: 70px; font: 800 400px/1 var(--f-num); letter-spacing: -.05em;
+                     color: transparent; -webkit-text-stroke: 2.5px var(--cu); }
+  .divider .dv-time { position: absolute; left: 166px; top: 500px; font: 500 36px/1 var(--f-mono); color: var(--sig); letter-spacing: .1em; }
+  .divider h2 { position: absolute; left: 156px; top: 560px; font: 900 180px/1.1 var(--f-tc); letter-spacing: .01em; }
+  .divider .dv-sub { position: absolute; left: 164px; top: 790px; font: 500 46px/1.4 var(--f-tc); color: var(--ink); }
+  .divider .dv-sub em { color: var(--cu); font-weight: 700; }
+  .divider .dv-ring  { right: -220px; top: -120px; width: 980px; height: 980px; }
+  .divider .dv-ring2 { right: -60px; top: 40px; width: 660px; height: 660px; }
+  .divider .dv-ring3 { right: 120px; top: 220px; width: 300px; height: 300px; border-color: var(--cu); }
+  .divider .dv-tag { position: absolute; right: 160px; top: 128px; font: 500 24px/1 var(--f-mono); color: var(--muted); letter-spacing: .26em; text-align: right; }
+
+  /* ---------- 14 間實驗室 ---------- */
+  #s-labmap h2 { font: 900 84px/1.1 var(--f-tc); margin-top: 26px; }
+  #s-labmap h2 em { color: var(--cu); font-family: var(--f-num); font-weight: 800; }
+  #s-labmap .lm { position: absolute; left: 160px; right: 160px; top: 330px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 70px; }
+  #s-labmap h3 { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 20px; border-bottom: 2px solid var(--cu); }
+  #s-labmap h3 span { font: 900 42px/1 var(--f-tc); }
+  #s-labmap h3 em { font: 500 20px/1 var(--f-mono); color: var(--cu); letter-spacing: .16em; }
+  #s-labmap li { display: grid; grid-template-columns: 62px 1fr; padding: 14px 0; border-bottom: 1px solid var(--line); }
+  #s-labmap li b { grid-row: span 2; font: 500 26px/1.35 var(--f-mono); color: var(--cu); }
+  #s-labmap li span { font: 700 31px/1.3 var(--f-tc); }
+  #s-labmap li i { margin-top: 6px; font: 500 24px/1.2 var(--f-tc); color: var(--muted); }
+
+  /* ---------- 教授引言卡 ---------- */
+  .card .c-ghost { position: absolute; right: -30px; top: -150px; font: 800 560px/1 var(--f-num); letter-spacing: -.06em;
+                   color: transparent; -webkit-text-stroke: 2px rgba(226,105,63,.22); z-index: 0; pointer-events: none; }
+  .card .c-body { position: absolute; left: 160px; top: 116px; z-index: 2; }
+  .card .c-kick { display: flex; align-items: baseline; gap: 14px; font: 500 26px/1 var(--f-mono); letter-spacing: .14em; }
+  .card .c-kick b { color: var(--cu); font-weight: 700; }
+  .card .c-kick i { color: var(--dim); }
+  .card .c-kick .tag { margin-left: 22px; padding: 9px 16px 8px; border: 1.5px solid var(--cu-a); border-radius: 100px;
+                       font: 500 21px/1 var(--f-tc); letter-spacing: .1em; color: var(--ink); }
+  .card .c-name { margin-top: 30px; font: 900 156px/1.08 var(--f-tc); letter-spacing: .03em; display: flex; align-items: baseline; gap: 30px; }
+  .card .c-name small { font: 700 46px/1 var(--f-tc); color: var(--cu); letter-spacing: .1em; }
+  .card .c-role { margin-top: 16px; font: 500 30px/1.4 var(--f-tc); color: var(--muted); min-height: 42px; }
+  .card .c-hook { margin-top: 38px; font: 600 50px/1.42 var(--f-serif); color: var(--ink); }
+  .card .c-meta { margin-top: 42px; padding-top: 28px; border-top: 1px solid var(--line); }
+  .card .c-meta em { display: inline-block; width: 110px; font: 500 22px/1 var(--f-mono); color: var(--dim); letter-spacing: .18em; flex: none; }
+  .card .c-lab { display: flex; align-items: baseline; font: 700 36px/1.3 var(--f-tc); }
+  .card .c-lab b { margin-left: 22px; font: 500 30px/1 var(--f-mono); color: var(--cu); }
+  .card .c-skills { display: flex; align-items: flex-start; margin-top: 18px; }
+  .card .c-skills em { padding-top: 13px; }
+  .card .c-skills ul { display: flex; flex-wrap: wrap; gap: 10px 12px; flex: 1; }
+  .card .c-skills li { padding: 10px 18px 9px; border-radius: 6px; background: rgba(243,238,228,.06); border: 1px solid var(--line);
+                       font: 500 26px/1 var(--f-tc); }
+  .card .c-for { margin-top: 20px; font: 500 30px/1.4 var(--f-tc); color: var(--sig); }
+  .card .c-for em { color: var(--sig); width: 110px; }
+  .card .ph { position: absolute; top: 150px; height: 600px; z-index: 3; background-size: cover; background-position: center;
+              box-shadow: 0 30px 80px rgba(0,0,0,.55); }
+  .card .ph::after { content: ""; position: absolute; inset: -18px -18px 18px 18px; border: 2px solid var(--cu); z-index: -1; pointer-events: none; }
+  .card .ph-cap { position: absolute; top: 790px; display: flex; justify-content: space-between; z-index: 3;
+                  font: 500 21px/1 var(--f-mono); color: var(--muted); letter-spacing: .12em; }
+  .card .ph-cap span + span { color: var(--ink); font-family: var(--f-tc); letter-spacing: .08em; }
+  /*@@PROF_CSS@@*/
+
+  /* ---------- 謝謝老師 ---------- */
+  #s-recap h2 { font: 900 110px/1.1 var(--f-tc); margin-top: 24px; }
+  #s-recap h2 em { font-family: var(--f-num); font-weight: 800; color: var(--cu); }
+  #s-recap .rc-lead { margin-top: 26px; font: 600 42px/1.5 var(--f-serif); }
+  #s-recap .rc-lead b { color: var(--cu); font-weight: 900; }
+  #s-recap .rc { position: absolute; left: 160px; right: 160px; top: 500px; display: grid; grid-template-columns: repeat(7, 1fr); row-gap: 34px; }
+  #s-recap .rc li { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+  #s-recap .rc i { width: 150px; height: 150px; border-radius: 50%; background-size: cover; background-position: center 22%;
+                   box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--cu-a); }
+  #s-recap .rc span { font: 700 28px/1 var(--f-tc); letter-spacing: .08em; }
+
+  /* ---------- 03 休息 ---------- */
+  #s-break .br-cd { position: absolute; left: 164px; top: 790px; font: 500 46px/1.4 var(--f-tc); }
+  #s-break .br-cd b { font: 800 64px/1 var(--f-num); color: var(--sig); margin: 0 10px; vertical-align: -4px; }
+  #s-break .br-list { position: absolute; right: 160px; top: 520px; width: 560px; }
+  #s-break .br-list li { display: flex; align-items: center; gap: 24px; padding: 26px 0; border-bottom: 1px solid var(--line); font: 500 38px/1.2 var(--f-tc); }
+  #s-break .br-list li b { font: 500 22px/1 var(--f-mono); color: var(--cu); letter-spacing: .12em; width: 80px; }
+  #s-break .br-list li:last-child { color: var(--cu); font-weight: 700; border-bottom: 0; }
+
+  /* ---------- 04 團康 ---------- */
+  #s-games .dv-num { font-size: 300px; top: 80px; }
+  #s-games h2 { top: 110px; left: 730px; font-size: 150px; }
+  #s-games .dv-time { left: 740px; top: 300px; }
+  #s-games .gm { position: absolute; left: 160px; right: 160px; top: 480px; }
+  #s-games .gm-bar { display: flex; height: 170px; gap: 6px; }
+  #s-games .gm-bar > div { position: relative; display: flex; flex-direction: column; justify-content: flex-end; padding: 0 0 24px 26px;
+                           background: var(--cu); color: var(--bg); border-radius: 4px; }
+  #s-games .gm-bar > div.run { background: var(--sig); padding-left: 0; align-items: center; }
+  #s-games .gm-bar b { font: 900 46px/1 var(--f-tc); }
+  #s-games .gm-bar > div.run b { font-size: 30px; }
+  #s-games .gm-bar span { margin-top: 12px; font: 700 22px/1 var(--f-mono); letter-spacing: .06em; }
+  #s-games .gm-ticks { position: relative; height: 70px; font: 500 26px/1 var(--f-mono); color: var(--muted); }
+  #s-games .gm-ticks span { position: absolute; top: 26px; transform: translateX(-50%); }
+  #s-games .gm-ticks span::before { content: ""; position: absolute; left: 50%; top: -26px; height: 16px; border-left: 2px solid var(--cu-a); }
+  #s-games .gm-ticks span:first-child { transform: none; } #s-games .gm-ticks span:first-child::before { left: 0; }
+  #s-games .gm-ticks span:last-child { transform: translateX(-100%); } #s-games .gm-ticks span:last-child::before { left: 100%; }
+  #s-games .gm-note { margin-top: 70px; display: flex; align-items: center; gap: 26px; font: 500 40px/1.3 var(--f-tc); }
+  #s-games .gm-note b { font: 500 30px/1 var(--f-mono); color: var(--sig); }
+  #s-games .gm-note em { color: var(--cu); font-weight: 700; }
+
+  /* ---------- 回 EB111 ---------- */
+  #s-move .mv-room { position: absolute; left: 140px; top: 270px; font: 800 440px/1 var(--f-num); letter-spacing: -.05em; }
+  #s-move .mv-room i { color: var(--cu); }
+  #s-move .mv-head { font: 900 84px/1.1 var(--f-tc); }
+  #s-move .mv-sub { position: absolute; left: 164px; top: 780px; font: 500 44px/1.4 var(--f-tc); }
+  #s-move .mv-sub em { color: var(--cu); font-weight: 700; }
+  #s-move .mv-arrow { position: absolute; right: 160px; top: 96px; width: 150px; height: 150px; stroke: var(--sig); stroke-width: 6; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* ---------- 頒獎 ---------- */
+  #s-awards h2 { font: 900 170px/1.1 var(--f-tc); margin-top: 30px; }
+  #s-awards .aw-q { margin-top: 34px; font: 600 52px/1.4 var(--f-serif); }
+  #s-awards .aw-q em { color: var(--cu); }
+  #s-awards .aw-slots { position: absolute; left: 160px; right: 160px; top: 620px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 36px; }
+  #s-awards .aw-slots li { height: 250px; border: 2px solid var(--cu-a); border-radius: 8px; padding: 30px 34px; position: relative; }
+  #s-awards .aw-slots li b { display: block; font: 900 50px/1 var(--f-tc); }
+  #s-awards .aw-slots li span { display: block; margin-top: 14px; font: 500 22px/1 var(--f-mono); color: var(--muted); letter-spacing: .14em; }
+  #s-awards .aw-slots li i { position: absolute; right: 30px; bottom: 18px; font: 800 110px/1 var(--f-num); color: rgba(226,105,63,.5); }
+  #s-awards .aw-slots li:nth-child(3) { border-color: var(--cu); }
+  #s-awards .aw-slots li:nth-child(4) { border-style: dashed; }
+
+  .sus { text-align: center; padding-top: 110px; }
+  .sus .spot { position: absolute; inset: 0; z-index: -1; background: radial-gradient(ellipse 760px 560px at 50% 52%, rgba(226,105,63,.26), transparent 70%); }
+  .sus .s-lbl { font: 900 92px/1.1 var(--f-tc); }
+  .sus .s-num { display: inline-block; margin-top: 10px; font: 800 470px/1 var(--f-num); letter-spacing: -.05em; color: transparent; -webkit-text-stroke: 3px var(--cu); }
+  .sus .s-q { font: 600 50px/1.4 var(--f-serif); color: var(--muted); }
+  .sus svg.s-num { width: 420px; height: 420px; margin: 40px 0 10px; }
+  .star { fill: none; stroke: var(--cu); stroke-width: 3; stroke-linejoin: round; }
+
+  .rev .r-num { position: absolute; left: 140px; top: 220px; font: 800 520px/1 var(--f-num); letter-spacing: -.05em; color: var(--cu); }
+  .rev svg.r-num { width: 470px; height: 470px; left: 150px; top: 250px; fill: var(--cu); }
+  .rev svg.r-num .star { fill: var(--cu); }
+  .rev .r-body { position: absolute; left: 820px; top: 230px; right: 140px; }
+  .rev .r-team { margin-top: 36px; font: 900 200px/1.05 var(--f-tc); white-space: nowrap; }
+  .rev .r-team b { display: inline-block; font: 800 230px/1 var(--f-num); color: var(--sig); margin: 0 18px; letter-spacing: -.04em; min-width: .6em; text-align: center; }
+  .rev .r-prize { margin-top: 56px; font: 700 64px/1.3 var(--f-tc); }
+  .rev .r-prize b { color: var(--cu); font-weight: 900; }
+  .rev .r-act { margin-top: 26px; font: 600 42px/1.4 var(--f-serif); color: var(--muted); }
+  .burst { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+  .burst i { position: absolute; width: 14px; height: 14px; opacity: .6; transform: rotate(var(--r)) scale(var(--z)); }
+  .burst i.sq { background: var(--cu); }
+  .burst i.ci { border-radius: 50%; border: 3px solid var(--sig); background: transparent; }
+  .burst i.ln { width: 30px; height: 4px; background: var(--ink); opacity: .35; }
+
+  #s-r1p { text-align: center; }
+  #s-r1p .p-kick { margin-top: 30px; }
+  #s-r1p .p-big { margin-top: 30px; font: 900 400px/1.1 var(--f-tc); letter-spacing: .04em; color: var(--ink);
+                  text-shadow: 0 0 80px rgba(226,105,63,.55); }
+  #s-r1p .p-big em { color: var(--cu); }
+  #s-r1p .p-note { position: absolute; left: 0; right: 0; bottom: 130px; display: flex; justify-content: center; align-items: center; gap: 22px;
+                   font: 500 38px/1.4 var(--f-tc); color: var(--ink); }
+  #s-r1p .p-note svg { width: 56px; height: 56px; stroke: var(--sig); stroke-width: 3; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  #s-r1p .rays { position: absolute; left: 50%; top: 52%; width: 1800px; height: 1800px; margin: -900px 0 0 -900px; z-index: -1;
+                 background: repeating-conic-gradient(from 0deg, rgba(226,105,63,.10) 0 6deg, transparent 6deg 18deg);
+                 -webkit-mask: radial-gradient(circle, #000 10%, transparent 62%); mask: radial-gradient(circle, #000 10%, transparent 62%); }
+
+  /* ---------- 06 大合照 ---------- */
+  #s-photo .vf { position: absolute; width: 120px; height: 120px; border: 0 solid var(--ink); }
+  #s-photo .vf.tl { left: 70px; top: 70px; border-width: 4px 0 0 4px; }
+  #s-photo .vf.tr { right: 70px; top: 70px; border-width: 4px 4px 0 0; }
+  #s-photo .vf.bl { left: 70px; bottom: 70px; border-width: 0 0 4px 4px; }
+  #s-photo .vf.br { right: 70px; bottom: 70px; border-width: 0 4px 4px 0; }
+  #s-photo .rec { position: absolute; left: 130px; top: 120px; display: flex; align-items: center; gap: 16px; font: 700 28px/1 var(--f-mono); letter-spacing: .2em; }
+  #s-photo .rec i { width: 22px; height: 22px; border-radius: 50%; background: #ff4b3a; box-shadow: 0 0 18px #ff4b3a; }
+  #s-photo .meta { position: absolute; right: 130px; top: 122px; font: 500 26px/1 var(--f-mono); color: var(--muted); letter-spacing: .14em; }
+  #s-photo .ph-c { position: absolute; left: 0; right: 0; top: 250px; text-align: center; }
+  #s-photo .ph-c .kick { letter-spacing: .4em; }
+  #s-photo h2 { margin-top: 26px; font: 900 240px/1.08 var(--f-tc); letter-spacing: .08em; }
+  #s-photo .ph-sub { margin-top: 30px; font: 600 54px/1.4 var(--f-serif); }
+  #s-photo .focus { position: absolute; left: 50%; top: 50%; width: 1120px; height: 560px; margin: -250px 0 0 -560px; pointer-events: none; }
+  #s-photo .focus i { position: absolute; width: 50px; height: 50px; border: 0 solid var(--sig); }
+  #s-photo .focus i:nth-child(1) { left: 0; top: 0; border-width: 3px 0 0 3px; }
+  #s-photo .focus i:nth-child(2) { right: 0; top: 0; border-width: 3px 3px 0 0; }
+  #s-photo .focus i:nth-child(3) { left: 0; bottom: 0; border-width: 0 0 3px 3px; }
+  #s-photo .focus i:nth-child(4) { right: 0; bottom: 0; border-width: 0 3px 3px 0; }
+
+  /* ---------- 結尾 ---------- */
+  #s-end h2 { margin-top: 30px; font: 900 220px/1.08 var(--f-tc); letter-spacing: .03em; }
+  #s-end .e-thx { margin-top: 50px; display: flex; gap: 0; }
+  #s-end .e-thx li { padding: 0 44px; border-left: 2px solid var(--cu-a); font: 700 44px/1 var(--f-tc); }
+  #s-end .e-thx li:first-child { padding-left: 0; border-left: 0; }
+  #s-end .e-thx li small { display: block; margin-bottom: 16px; font: 500 20px/1 var(--f-mono); color: var(--cu); letter-spacing: .2em; }
+  #s-end .e-mem { margin-top: 74px; font: 600 54px/1.45 var(--f-serif); }
+  #s-end .e-mem em { color: var(--cu); }
+  #s-end .e-exit { position: absolute; right: 160px; top: 140px; text-align: right; }
+  #s-end .e-exit b { display: block; font: 900 64px/1.2 var(--f-tc); color: var(--sig); }
+  #s-end .e-exit span { display: block; margin-top: 16px; font: 500 26px/1 var(--f-mono); color: var(--muted); letter-spacing: .16em; }
+  #s-end .e-exit svg { width: 120px; height: 120px; margin-bottom: 20px; stroke: var(--sig); stroke-width: 5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* ================================================================
+     操作者介面：目錄、頒獎設定、待機
+     ================================================================ */
+  .ov { position: fixed; inset: 0; z-index: 40; display: none; font-family: var(--f-tc); color: var(--ink); }
+  .ov.open { display: block; }
+  .ov-panel { position: absolute; inset: 4vh 4vw; overflow: auto; padding: 36px 44px 48px; border-radius: 14px;
+              background: rgba(16,18,17,.97); border: 1px solid var(--line); box-shadow: 0 30px 120px rgba(0,0,0,.6); }
+  .ov h4 { display: flex; justify-content: space-between; align-items: baseline; font: 900 30px/1.2 var(--f-tc); margin-bottom: 26px; }
+  .ov h4 small { font: 500 13px/1.6 var(--f-mono); color: var(--muted); letter-spacing: .08em; text-align: right; }
+  .menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 26px 22px; }
+  .menu-grid section h5 { font: 500 12px/1 var(--f-mono); color: var(--cu); letter-spacing: .2em; padding-bottom: 10px; margin-bottom: 6px; border-bottom: 1px solid var(--cu-a); }
+  .menu-grid button { display: flex; gap: 10px; width: 100%; text-align: left; padding: 7px 8px; border: 0; border-radius: 6px; background: none;
+                      color: var(--ink); font: 500 15px/1.35 var(--f-tc); cursor: pointer; }
+  .menu-grid button i { font: 500 12px/1.9 var(--f-mono); color: var(--dim); min-width: 22px; }
+  .menu-grid button:hover, .menu-grid button:focus-visible { background: rgba(226,105,63,.16); outline: none; }
+  .menu-grid button.cur { background: var(--cu); color: var(--bg); }
+  .menu-grid button.cur i { color: var(--bg); }
+  .edit-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 22px; max-width: 1200px; }
+  .edit-grid fieldset { border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px 20px; }
+  .edit-grid legend { padding: 0 8px; font: 700 18px/1 var(--f-tc); color: var(--cu); }
+  .edit-grid label { display: block; margin-top: 12px; font: 500 13px/1 var(--f-mono); color: var(--muted); letter-spacing: .1em; }
+  .edit-grid input { display: block; width: 100%; margin-top: 8px; padding: 10px 12px; border-radius: 6px; border: 1px solid var(--line);
+                     background: #0b0c0b; color: var(--ink); font: 500 20px/1.2 var(--f-tc); }
+  .edit-grid input:focus { outline: 2px solid var(--cu); border-color: transparent; }
+  .ov-note { margin-top: 22px; font: 500 14px/1.7 var(--f-tc); color: var(--muted); }
+  .ov-close { position: absolute; right: 18px; top: 14px; border: 0; background: none; color: var(--muted); font: 500 28px/1 var(--f-mono); cursor: pointer; padding: 8px; }
+  .ov-standby { background: #050505; cursor: none; }
+  .ov-standby div { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); text-align: center; }
+  .ov-standby b { display: block; font: 900 clamp(24px, 3.4vw, 64px)/1.2 var(--f-tc); color: rgba(243,238,228,.88); }
+  .ov-standby span { display: block; margin-top: 1.2em; font: 500 clamp(11px, 1vw, 18px)/1 var(--f-mono); color: var(--cu); letter-spacing: .3em; }
+</style>
+</head>
+<body>
+
+<div class="stage" id="stage">
+
+  <!-- ========== 01 簽到中（17:35–18:00） ========== -->
+  <section class="slide" id="s-wait" data-stage="0" data-rail="off" data-transition="fade" data-title="簽到中（等待開場）">
+    <svg class="deco" width="900" height="1080" viewBox="0 0 900 1080" aria-hidden="true">
+      <path d="M900 210 H640 L560 290 V560 L480 640 H300"/><path d="M900 330 H700 L640 390 V720 L560 800 H420"/>
+      <path d="M900 470 H760 L720 510 V900 H520"/>
+      <path class="glint" d="M900 210 H640 L560 290 V560 L480 640 H300"/>
+      <path class="glint g2" d="M900 330 H700 L640 390 V720 L560 800 H420"/>
+      <circle cx="300" cy="640" r="12"/><circle cx="420" cy="800" r="12"/><circle cx="520" cy="900" r="12"/>
+    </svg>
+    <div class="w-top">
+      <p class="w-title" data-a="fade"><b>資工系</b>期初系員大會</p>
+      <p class="kick" data-a="fade">NCUE CSIE · 115</p>
+    </div>
+    <div class="w-state">
+      <i class="w-dot idle-breathe" aria-hidden="true"></i>
+      <h1 data-a="mask"><span class="ln"><span>簽到中</span></span></h1>
+    </div>
+    <p class="w-hint" data-a="rise">剛到的同學，請先找<b>工作人員簽到</b>。<br>朋友還沒到？趕快 call 他！</p>
+    <p class="cd" data-a="fade" data-until="18:00" data-live="距離開始還有 <b>{m}</b> 分鐘" data-over="馬上開始">活動 18:00 準時開始</p>
+  </section>
+
+  <!-- ========== 02 開場 ========== -->
+  <section class="slide" id="s-cover" data-stage="1" data-rail="off" data-transition="boot" data-title="開場 · 歡迎">
+    <i class="via dash cv-ring idle-spin" aria-hidden="true"></i>
+    <i class="via cv-ring2" aria-hidden="true"></i>
+    <svg class="deco" width="1920" height="1080" viewBox="0 0 1920 1080" aria-hidden="true">
+      <path d="M1920 160 H1580 L1500 240 V420 L1440 480 H1300"/><path d="M1920 900 H1640 L1560 820 V700"/>
+      <path class="glint" d="M1920 160 H1580 L1500 240 V420 L1440 480 H1300"/>
+      <path class="glint g3" d="M1920 900 H1640 L1560 820 V700"/>
+      <circle cx="1300" cy="480" r="12"/><circle cx="1560" cy="700" r="12"/>
+    </svg>
+    <p class="kick cv-kick" data-a="fade">Welcome · 115 學年度</p>
+    <h1 data-a="mask"><span class="ln"><span class="a">資工系</span></span><span class="ln"><span class="b">期初系員大會</span></span></h1>
+    <p class="cv-lead" data-a="chars">今晚的任務：認識彼此，<br>也提早看見大學生活。</p>
+    <p class="cv-host" data-a="fade">HOST<b>主持人 劉羿宗</b></p>
+  </section>
+
+  <!-- ========== 03 開始之前 ========== -->
+  <section class="slide" id="s-notice" data-stage="1" data-rail="off" data-transition="vpan" data-title="開始之前 · 場地提醒">
+    <p class="kick" data-a="fade">Before we start</p>
+    <h2 data-a="mask" style="margin-top:30px"><span class="ln"><span>開始之前，兩件事</span></span></h2>
+    <div class="nt-grid">
+      <div class="nt">
+        <div class="nt-head" data-a="fade"><b>01</b>
+          <svg viewBox="0 0 120 120" data-a="draw" aria-hidden="true"><path d="M18 62 H102 C100 88 82 104 60 104 C38 104 20 88 18 62 Z"/><path d="M48 18 L70 54"/><path d="M66 14 L82 52"/></svg>
+        </div>
+        <h3 data-a="rise">食物請在<br><em>場地外</em>食用</h3>
+        <p data-a="fade">場地內請勿飲食，謝謝合作。</p>
+      </div>
+      <div class="nt">
+        <div class="nt-head" data-a="fade"><b>02</b>
+          <svg viewBox="0 0 120 120" data-a="draw" aria-hidden="true"><circle cx="36" cy="22" r="10"/><path d="M24 40 H48 L52 74 H44 V108 H28 V74 H20 Z"/><path d="M60 14 V110"/><circle cx="86" cy="22" r="10"/><path d="M86 38 L104 84 H68 Z"/><path d="M78 84 V108 M94 84 V108"/></svg>
+        </div>
+        <h3 data-a="rise">洗手間<br>在<em>樓梯旁</em></h3>
+        <p data-a="fade">需要的同學可以直接去。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 04 今晚的路線（rail 主視覺） ========== -->
+  <section class="slide" id="s-agenda" data-stage="1" data-rail="hero" data-transition="focus" data-title="今晚的路線 · 180 分鐘">
+    <p class="kick" data-a="fade">Tonight · 18:00 — 21:00</p>
+    <div class="ag-row">
+      <p class="ag-big" data-a="count"><b>180</b><span>分鐘</span></p>
+      <p class="ag-side" data-a="chars">認識教授<i>→</i>認識彼此<i>→</i>一起玩<br>最後頒獎、大合照</p>
+    </div>
+    <p class="ag-foot" data-a="fade"><span>團康結束後 <b>20:30</b> 回到 <b>EB111</b></span><span>頒獎 &amp; 大合照都在 <b>EB111</b></span></p>
+  </section>
+
+  <!-- ========== 05 章節 01 專題介紹 ========== -->
+  <section class="slide divider" id="s-sec1" data-stage="1" data-transition="node" data-title="01 專題介紹">
+    <i class="via dash dv-ring idle-spin" aria-hidden="true"></i><i class="via dv-ring2" aria-hidden="true"></i><i class="via dv-ring3 idle-breathe" aria-hidden="true"></i>
+    <p class="dv-num" data-a="blur">01</p>
+    <p class="dv-tag" data-a="fade">CHAPTER 01<br><br>LAB TOUR</p>
+    <p class="dv-time" data-a="fade">18:00 — 19:00</p>
+    <h2 data-a="mask"><span class="ln"><span>專題介紹</span></span></h2>
+    <p class="dv-sub" data-a="rise"><em>14</em> 位教授、<em>14</em> 間實驗室——找到你想走的方向。</p>
+  </section>
+
+  <!-- ========== 06 14 間實驗室 ========== -->
+  <section class="slide" id="s-labmap" data-stage="1" data-transition="columns" data-title="14 間實驗室總覽">
+    <p class="kick" data-a="fade">Lab map · 編號 = 出場順序</p>
+    <h2 data-a="mask"><span class="ln"><span>今晚登場的 <em>14</em> 間實驗室</span></span></h2>
+    <div class="lm"><!--@@LABMAP@@--></div>
+  </section>
+
+  <!-- ========== 07 原簡報封面 ========== -->
+  <section class="slide embed" id="s-p01" data-stage="1" data-rail="off" data-transition="zoom" data-title="原簡報 · 師資介紹"><img src="@@PAGE01@@" alt="家長日簡報：師資介紹" decoding="async"></section>
+
+  <!-- ========== 14 位教授：引言卡 + 原簡報 ========== -->
+  <!--@@PROFS@@-->
+
+  <!-- ========== 謝謝老師 ========== -->
+  <section class="slide" id="s-recap" data-stage="1" data-transition="blinds" data-title="謝謝 14 位老師">
+    <p class="kick" data-a="fade">Thank you, professors</p>
+    <h2 data-a="mask"><span class="ln"><span>謝謝 <em>14</em> 位老師</span></span></h2>
+    <p class="rc-lead" data-a="chars">從<b>晶片</b>、<b>網路</b>、<b>嵌入式系統</b>，到<b>資料</b>、<b>影像</b>和 <b>AI 代理人</b>——<br>幾乎涵蓋了資工的每一個方向。</p>
+    <ul class="rc" data-a="faces"><!--@@RECAP@@--></ul>
+  </section>
+
+  <!-- ========== 章節 02 小隊破冰 ========== -->
+  <section class="slide divider" id="s-ice" data-stage="2" data-transition="node" data-title="02 小隊破冰">
+    <i class="via dash dv-ring idle-spin" aria-hidden="true"></i><i class="via dv-ring2" aria-hidden="true"></i><i class="via dv-ring3 idle-breathe" aria-hidden="true"></i>
+    <p class="dv-num" data-a="blur">02</p>
+    <p class="dv-tag" data-a="fade">CHAPTER 02<br><br>ICEBREAKER</p>
+    <p class="dv-time" data-a="fade">19:00 — 19:20</p>
+    <h2 data-a="mask"><span class="ln"><span>小隊破冰</span></span></h2>
+    <p class="dv-sub" data-a="rise">想認識誰，就<em>勇敢去尬聊</em>！請各小隊開始破冰。</p>
+  </section>
+
+  <!-- ========== 章節 03 休息 ========== -->
+  <section class="slide divider" id="s-break" data-stage="3" data-transition="node" data-title="03 休息時間">
+    <i class="via dash dv-ring idle-spin" aria-hidden="true"></i><i class="via dv-ring2" aria-hidden="true"></i>
+    <p class="dv-num" data-a="blur">03</p>
+    <p class="dv-time" data-a="fade">19:20 — 19:30</p>
+    <h2 data-a="mask"><span class="ln"><span>休息時間</span></span></h2>
+    <p class="br-cd" data-a="rise" data-until="19:30" data-live="<b>{m}</b> 分鐘後回到現場" data-over="請回到現場，團康活動準備開始">請在 <b>19:30</b> 回到現場</p>
+    <ul class="br-list" data-a="chips">
+      <li><b>01</b>喝個水</li>
+      <li><b>02</b>上個廁所（樓梯旁）</li>
+      <li><b>NEXT</b>待會：熱鬧的團康活動</li>
+    </ul>
+  </section>
+
+  <!-- ========== 章節 04 團康活動 ========== -->
+  <section class="slide divider" id="s-games" data-stage="4" data-transition="node" data-title="04 團康活動 · 時段表">
+    <p class="dv-num" data-a="blur">04</p>
+    <h2 data-a="mask"><span class="ln"><span>團康活動</span></span></h2>
+    <p class="dv-time" data-a="fade">19:30 — 20:30 · 三個時段 + 兩次跑關</p>
+    <div class="gm">
+      <div class="gm-bar" data-a="bar">
+        <div style="flex:20"><b>團康 時段 1</b><span>20 MIN</span></div>
+        <div class="run" style="flex:5"><b>跑關 1</b><span>5 MIN</span></div>
+        <div style="flex:20"><b>團康 時段 2</b><span>20 MIN</span></div>
+        <div class="run" style="flex:5"><b>跑關 2</b><span>5 MIN</span></div>
+        <div style="flex:10"><b>時段 3</b><span>10 MIN</span></div>
+      </div>
+      <div class="gm-ticks" data-a="fade">
+        <span style="left:0">19:30</span><span style="left:33.33%">19:50</span><span style="left:41.67%">19:55</span>
+        <span style="left:75%">20:15</span><span style="left:83.33%">20:20</span><span style="left:100%">20:30</span>
+      </div>
+      <p class="gm-note" data-a="rise"><b>20:30 →</b><span>結束後請<em>回到 EB111</em>，準備頒獎！</span></p>
+    </div>
+  </section>
+
+  <!-- ========== 回 EB111 ========== -->
+  <section class="slide" id="s-move" data-stage="4" data-transition="pan" data-title="回到 EB111">
+    <p class="kick" data-a="fade">20:30 — 20:35 · Move</p>
+    <h2 class="mv-head" data-a="mask" style="margin-top:28px"><span class="ln"><span>請回到</span></span></h2>
+    <p class="mv-room" data-a="slide">EB<i>111</i></p>
+    <svg class="mv-arrow" viewBox="0 0 120 120" data-a="draw" aria-hidden="true"><path d="M20 100 L100 20"/><path d="M44 20 H100 V76"/></svg>
+    <p class="mv-sub" data-a="rise">接下來：<em>系員交流 &amp; 頒獎</em></p>
+  </section>
+
+  <!-- ========== 章節 05 系員交流 & 頒獎 ========== -->
+  <section class="slide divider" id="s-sec5" data-stage="5" data-transition="node" data-title="05 系員交流 & 頒獎">
+    <i class="via dash dv-ring idle-spin" aria-hidden="true"></i><i class="via dv-ring2" aria-hidden="true"></i><i class="via dv-ring3 idle-breathe" aria-hidden="true"></i>
+    <p class="dv-num" data-a="blur">05</p>
+    <p class="dv-tag" data-a="fade">CHAPTER 05<br><br>@ EB111</p>
+    <p class="dv-time" data-a="fade">20:35 — 21:00</p>
+    <h2 data-a="mask"><span class="ln"><span>交流 &amp; 頒獎</span></span></h2>
+    <p class="dv-sub" data-a="rise">剛剛玩得開心嗎？<em>你們那組遇到什麼好玩的事？</em>上台分享！</p>
+  </section>
+
+  <!-- ========== 頒獎開始 ========== -->
+  <section class="slide" id="s-awards" data-stage="5" data-transition="blinds" data-title="頒獎時間">
+    <p class="kick" data-a="fade">Awards</p>
+    <h2 data-a="mask"><span class="ln"><span>頒獎時間</span></span></h2>
+    <p class="aw-q" data-a="chars">哪個小隊覺得自己<em>贏定了</em>？</p>
+    <ul class="aw-slots" data-a="chips">
+      <li><b>第三名</b><span>3RD PLACE</span><i>3</i></li>
+      <li><b>第二名</b><span>2ND PLACE</span><i>2</i></li>
+      <li><b>第一名</b><span>1ST PLACE</span><i>1</i></li>
+      <li><b>特殊獎</b><span>SPECIAL</span><i>★</i></li>
+    </ul>
+  </section>
+
+  <!-- ========== 第三名 ========== -->
+  <section class="slide sus" id="s-r3q" data-stage="5" data-rail="off" data-transition="spot" data-title="第三名 · 懸念">
+    <i class="spot idle-breathe" aria-hidden="true"></i>
+    <p class="s-lbl" data-a="mask"><span class="ln"><span>第三名</span></span></p>
+    <p class="s-num" data-morph="n3">3</p>
+    <p class="s-q" data-a="fade">會是哪一隊呢……</p>
+  </section>
+  <section class="slide rev" id="s-r3a" data-stage="5" data-rail="off" data-transition="reveal" data-title="第三名 · 揭曉">
+    <!--@@BURST_r3@@-->
+    <p class="r-num" data-morph="n3">3</p>
+    <div class="r-body">
+      <p class="kick" data-a="fade">3rd place · 第三名</p>
+      <p class="r-team" data-a="mask"><span class="ln"><span>第<b data-bind="r3.team" data-roll>?</b>小隊</span></span></p>
+      <p class="r-prize" data-a="rise">恭喜獲得 <b data-bind="r3.prize">精美獎品</b>！</p>
+      <p class="r-act" data-a="fade">掌聲歡迎上台領獎！</p>
+    </div>
+  </section>
+
+  <!-- ========== 第二名 ========== -->
+  <section class="slide sus" id="s-r2q" data-stage="5" data-rail="off" data-transition="spot" data-title="第二名 · 懸念">
+    <i class="spot idle-breathe" aria-hidden="true"></i>
+    <p class="s-lbl" data-a="mask"><span class="ln"><span>第二名</span></span></p>
+    <p class="s-num" data-morph="n2">2</p>
+    <p class="s-q" data-a="fade">是誰呢……</p>
+  </section>
+  <section class="slide rev" id="s-r2a" data-stage="5" data-rail="off" data-transition="reveal" data-title="第二名 · 揭曉">
+    <!--@@BURST_r2@@-->
+    <p class="r-num" data-morph="n2">2</p>
+    <div class="r-body">
+      <p class="kick" data-a="fade">2nd place · 第二名</p>
+      <p class="r-team" data-a="mask"><span class="ln"><span>第<b data-bind="r2.team" data-roll>?</b>小隊</span></span></p>
+      <p class="r-prize" data-a="rise">恭喜獲得 <b data-bind="r2.prize">精美獎品</b>！</p>
+      <p class="r-act" data-a="fade">掌聲歡迎上台領獎！</p>
+    </div>
+  </section>
+
+  <!-- ========== 第一名 ========== -->
+  <section class="slide sus" id="s-r1q" data-stage="5" data-rail="off" data-transition="spot" data-title="第一名 · 懸念">
+    <i class="spot idle-breathe" aria-hidden="true"></i>
+    <p class="s-lbl" data-a="mask"><span class="ln"><span>最後，第一名</span></span></p>
+    <p class="s-num" data-morph="n1">1</p>
+    <p class="s-q" data-a="fade">……台下是不是沒有人了？</p>
+  </section>
+  <section class="slide rev" id="s-r1a" data-stage="5" data-rail="off" data-transition="reveal" data-title="第一名 · 揭曉">
+    <!--@@BURST_r1@@-->
+    <p class="r-num" data-morph="n1">1</p>
+    <div class="r-body">
+      <p class="kick" data-a="fade">1st place · 第一名</p>
+      <p class="r-team" data-a="mask"><span class="ln"><span>第<b data-bind="r1.team" data-roll>?</b>小隊！</span></span></p>
+      <p class="r-prize" data-a="rise">獲得——<b>史上最豐厚獎品</b></p>
+      <p class="r-act" data-a="fade">超扯的，你們猜是什麼？</p>
+    </div>
+  </section>
+  <section class="slide" id="s-r1p" data-stage="5" data-rail="off" data-transition="punch" data-title="第一名 · 獎品揭曉">
+    <i class="rays idle-spin" aria-hidden="true"></i>
+    <!--@@BURST_r1p@@-->
+    <p class="kick p-kick" data-a="fade">史上最豐厚獎品 · 第 <span data-bind="r1.team">?</span> 小隊</p>
+    <p class="p-big" data-a="pop"><span data-bind="r1.prize">雞排</span><em>！</em></p>
+    <p class="p-note" data-a="rise"><svg viewBox="0 0 60 60" aria-hidden="true"><path d="M10 30 H44"/><path d="M34 18 L46 30 L34 42"/><path d="M50 10 V50"/></svg><span>拿到食物請<b>帶出場地</b>再享用，場地打掃不易！</span></p>
+  </section>
+
+  <!-- ========== 特殊獎 ========== -->
+  <section class="slide sus" id="s-spq" data-stage="5" data-rail="off" data-transition="spot" data-title="特殊獎 · 懸念">
+    <i class="spot idle-breathe" aria-hidden="true"></i>
+    <p class="s-lbl" data-a="mask"><span class="ln"><span>壓軸 · 特殊獎</span></span></p>
+    <svg class="s-num" data-morph="nsp" viewBox="0 0 100 100" aria-hidden="true"><path class="star" d="M50 6 L62 37 L95 38 L69 59 L78 92 L50 73 L22 92 L31 59 L5 38 L38 37 Z"/></svg>
+    <p class="s-q" data-a="fade">最後一個獎項……</p>
+  </section>
+  <section class="slide rev" id="s-spa" data-stage="5" data-rail="off" data-transition="reveal" data-title="特殊獎 · 揭曉">
+    <!--@@BURST_sp@@-->
+    <svg class="r-num" data-morph="nsp" viewBox="0 0 100 100" aria-hidden="true"><path class="star" d="M50 6 L62 37 L95 38 L69 59 L78 92 L50 73 L22 92 L31 59 L5 38 L38 37 Z"/></svg>
+    <div class="r-body">
+      <p class="kick" data-a="fade">Special award · 特殊獎</p>
+      <p class="r-team" data-a="mask"><span class="ln"><span>第<b data-bind="sp.team" data-roll>?</b>小隊</span></span></p>
+      <p class="r-prize" data-a="rise">恭喜獲得 <b data-bind="sp.prize">健康步道</b>！</p>
+      <p class="r-act" data-a="fade">沒關係，明年再拚一下一定沒問題！</p>
+    </div>
+  </section>
+
+  <!-- ========== 章節 06 大合照 ========== -->
+  <section class="slide" id="s-photo" data-stage="6" data-transition="node" data-title="06 大合照">
+    <i class="vf tl" aria-hidden="true"></i><i class="vf tr" aria-hidden="true"></i><i class="vf bl" aria-hidden="true"></i><i class="vf br" aria-hidden="true"></i>
+    <p class="rec" data-a="fade"><i class="idle-glow" aria-hidden="true"></i>REC</p>
+    <p class="meta" data-a="fade">CHAPTER 06 · EB111</p>
+    <div class="focus" data-a="focus" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+    <div class="ph-c">
+      <p class="kick" data-a="fade">Group photo</p>
+      <h2 data-a="mask"><span class="ln"><span>大合照</span></span></h2>
+      <p class="ph-sub" data-a="chars">請各位同學，慢慢走到台上。</p>
+    </div>
+  </section>
+
+  <!-- ========== 結尾 ========== -->
+  <section class="slide" id="s-end" data-stage="7" data-transition="flash" data-title="謝謝大家 · 離場">
+    <p class="kick" data-a="fade">See you at NCUE</p>
+    <h2 data-a="mask"><span class="ln"><span>謝謝大家！</span></span></h2>
+    <ul class="e-thx" data-a="chips">
+      <li><small>SHARING</small>分享的教授們</li>
+      <li><small>DIRECTOR</small>總召</li>
+      <li><small>CREW</small>工作人員</li>
+      <li><small>MENTORS</small>小隊隊輔</li>
+    </ul>
+    <p class="e-mem" data-a="chars">希望今天，你帶走了<em>一份有趣的回憶</em>。<br>有緣的話，我們彰師見。</p>
+    <div class="e-exit" data-a="rise">
+      <svg viewBox="0 0 120 120" aria-hidden="true"><path d="M70 20 H100 V100 H70"/><path d="M20 60 H78"/><path d="M56 38 L78 60 L56 82"/></svg>
+      <b>請從後門離場</b><span>EXIT · BACK DOOR</span>
+    </div>
+  </section>
+
+  <!-- 流程走線（跨頁共享） -->
+  <div class="rail" id="rail" aria-hidden="true">
+    <i class="r-track"></i><i class="r-lit"></i>
+    <div class="r-node" style="left:160px"><i class="dot"></i><div class="lbl"><b class="t">18:00</b><span class="n">專題介紹</span><em class="d">60 MIN</em></div></div>
+    <div class="r-node" style="left:480px"><i class="dot"></i><div class="lbl"><b class="t">19:00</b><span class="n">小隊破冰</span><em class="d">20 MIN</em></div></div>
+    <div class="r-node" style="left:800px"><i class="dot"></i><div class="lbl"><b class="t">19:20</b><span class="n">休息</span><em class="d">10 MIN</em></div></div>
+    <div class="r-node" style="left:1120px"><i class="dot"></i><div class="lbl"><b class="t">19:30</b><span class="n">團康活動</span><em class="d">60 MIN</em></div></div>
+    <div class="r-node" style="left:1440px"><i class="dot"></i><div class="lbl"><b class="t">20:35</b><span class="n">交流 &amp; 頒獎</span><em class="d">@ EB111</em></div></div>
+    <div class="r-node" style="left:1760px"><i class="dot"></i><div class="lbl"><b class="t">21:00</b><span class="n">大合照</span><em class="d">賦歸</em></div></div>
+  </div>
+
+  <div class="wipe" aria-hidden="true"><i></i><i></i><i></i></div>
+  <div class="bars" aria-hidden="true"></div>
+  <i class="scanline" aria-hidden="true"></i>
+  <i class="ping" aria-hidden="true"></i>
+  <i class="flash" aria-hidden="true"></i>
+</div>
+
+<div class="hud" aria-hidden="true"><div class="bar"><i></i></div><div class="count"></div></div>
+
+<!-- 操作者：目錄（M） -->
+<div class="ov ov-menu" id="ov-menu" data-no-nav role="dialog" aria-label="目錄">
+  <div class="ov-panel">
+    <button class="ov-close" data-close aria-label="關閉">×</button>
+    <h4>目錄<small>點選跳頁 · Esc 關閉<br>← → 翻頁 · M 目錄 · E 頒獎設定 · B 待機 · F 全螢幕</small></h4>
+    <div class="menu-grid" id="menu-grid"></div>
+  </div>
+</div>
+
+<!-- 操作者：頒獎設定（E） -->
+<div class="ov ov-edit" id="ov-edit" data-no-nav role="dialog" aria-label="頒獎設定">
+  <div class="ov-panel">
+    <button class="ov-close" data-close aria-label="關閉">×</button>
+    <h4>頒獎設定<small>輸入後即時更新 · 自動儲存在這台電腦<br>Esc 關閉</small></h4>
+    <div class="edit-grid">
+      <fieldset><legend>第三名</legend><label>小隊編號<input data-key="r3.team" inputmode="numeric" placeholder="例：7"></label><label>獎品<input data-key="r3.prize"></label></fieldset>
+      <fieldset><legend>第二名</legend><label>小隊編號<input data-key="r2.team" inputmode="numeric" placeholder="例：3"></label><label>獎品<input data-key="r2.prize"></label></fieldset>
+      <fieldset><legend>第一名</legend><label>小隊編號<input data-key="r1.team" inputmode="numeric" placeholder="例：5"></label><label>獎品<input data-key="r1.prize"></label></fieldset>
+      <fieldset><legend>特殊獎</legend><label>小隊編號<input data-key="sp.team" inputmode="numeric" placeholder="例：2"></label><label>獎品<input data-key="sp.prize"></label></fieldset>
+    </div>
+    <p class="ov-note">小隊編號留空時，揭曉頁會顯示「?」。成績出爐後再填，填完按 Esc 回到簡報即可。</p>
+  </div>
+</div>
+
+<!-- 操作者：待機畫面（B） -->
+<div class="ov ov-standby" id="ov-standby" data-no-nav><div><b>資工系 期初系員大會</b><span>PLEASE STAND BY</span></div></div>
+
+<script>/*@@GSAP@@*/</script>
+<script>/*@@SPLIT@@*/</script>
+
+<script>
+(() => {
+  const W = 1920, H = 1080, BEAT = 0.1;
+  const EASE = { out: "expo.out", in: "power3.in", inOut: "expo.inOut", soft: "sine.inOut" };
+  const NODE_X = [160, 480, 800, 1120, 1440, 1760], RAIL_HERO = 560, RAIL_DOCK = 950, LINE_Y = 40;
+  const root = document.documentElement;
+  const stage = document.getElementById("stage");
+  const slides = [...stage.querySelectorAll(".slide")];
+  const wipeLayers = [...stage.querySelectorAll(".wipe i")];
+  const barsEl = stage.querySelector(".bars");
+  const scanEl = stage.querySelector(".scanline");
+  const pingEl = stage.querySelector(".ping");
+  const flashEl = stage.querySelector(".flash");
+  const rail = document.getElementById("rail");
+  const rNodes = [...rail.querySelectorAll(".r-node")];
+  const rLbls = rNodes.map(n => n.querySelector(".lbl"));
+  const rDur = rNodes.map(n => n.querySelector(".d"));
+  const rDots = rNodes.map(n => n.querySelector(".dot"));
+  const rTrack = rail.querySelector(".r-track"), rLit = rail.querySelector(".r-lit");
+  const bar = document.querySelector(".hud .bar i");
+  const counter = document.querySelector(".hud .count");
+  const G = window.gsap;
+  const mq = matchMedia("(prefers-reduced-motion: reduce)");
+  let reduced = mq.matches;
+  mq.addEventListener?.("change", e => (reduced = e.matches));
+
+  if (G) G.registerPlugin(...[window.SplitText].filter(Boolean));
+  root.classList.add("js");
+
+  let index = 0, busy = false, pending = null, idleCtx = null, cleanups = [], scale = 1, curTl = null, railOn = false;
+  const scenes = {};
+  const clamp = i => Math.max(0, Math.min(slides.length - 1, i));
+  const pad = n => String(n).padStart(2, "0");
+  // 轉場中被動到的元素：結束後清回 CSS 預設（= 靜止完整狀態）
+  const X = (els, props = "transform,opacity,visibility,filter,clipPath,zIndex") =>
+    (cleanups.push(() => G.set(els, { clearProps: props })), els);
+
+  /* ---------- 舞台縮放 ---------- */
+  const fit = () => {
+    scale = Math.min(innerWidth / W, innerHeight / H);
+    stage.style.transform = `translate(-50%, -50%) scale(${scale})`;
+  };
+  addEventListener("resize", fit); fit();
+
+  /* ---------- RAIL：流程走線 ---------- */
+  function railTo(slide, tl, at = 0) {
+    if (!G) return;
+    const mode = slide.dataset.rail || "dock", st = +slide.dataset.stage || 0;
+    rNodes.forEach((n, i) => { n.classList.toggle("past", i + 1 < st); n.classList.toggle("now", i + 1 === st); });
+    const lit = Math.max(0, Math.min(1, (st - 1) / 5));
+    const add = (t, v, pos = 0) => (tl && !reduced)
+      ? tl.to(t, { duration: 1.1, ease: EASE.inOut, ...v }, at + pos)
+      : G.set(t, Object.fromEntries(Object.entries(v).filter(([k]) => !["duration", "ease", "stagger"].includes(k))));
+    if (mode === "off") { if (railOn) add(rail, { autoAlpha: 0, duration: 0.35, ease: "power2.out" }); railOn = false; return; }
+    const hero = mode === "hero";
+    if (!railOn) {
+      // 第一次出現：在目標位置直接定位；主視覺模式時從左畫出走線
+      G.set(rail, { y: hero ? RAIL_HERO : RAIL_DOCK });
+      G.set(rLbls, { scale: hero ? 1 : 0.5, opacity: (i) => (hero || i + 1 === st ? 1 : 0.45) });
+      G.set(rDur, { autoAlpha: hero ? 1 : 0 });
+      G.set(rDots, { scale: hero ? 1 : 0.8 });
+      G.set(rLit, { scaleX: lit });
+      if (hero && tl && !reduced) {
+        G.set(rail, { autoAlpha: 1 });
+        tl.fromTo(rTrack, { scaleX: 0 }, { scaleX: 1, duration: 1.6, ease: EASE.inOut }, at + 0.1)
+          .from(rDots, { scale: 0, duration: 0.7, ease: "back.out(2)", stagger: 0.16 }, at + 0.35)
+          .from(rLbls, { y: 30, autoAlpha: 0, duration: 0.9, ease: EASE.out, stagger: 0.16 }, at + 0.5);
+        X(rTrack, "transform");
+      } else add(rail, { autoAlpha: 1, duration: 0.5, ease: "power2.out" }, 0.1);
+      railOn = true;
+      return;
+    }
+    add(rail, { y: hero ? RAIL_HERO : RAIL_DOCK, autoAlpha: 1 });
+    add(rLit, { scaleX: lit, duration: 1.0 });
+    add(rLbls, { scale: hero ? 1 : 0.5, opacity: (i) => (hero || i + 1 === st ? 1 : 0.45) });
+    add(rDur, { autoAlpha: hero ? 1 : 0, duration: 0.5 });
+    add(rDots, { scale: hero ? 1 : 0.8 });
+  }
+
+  /* ---------- 轉場庫：(tl, from, to, dir)，需加入 "enter" 標籤 ---------- */
+  const stageRect = (el) => { // 元素在 1920×1080 座標中的位置
+    const s = stage.getBoundingClientRect(), r = el.getBoundingClientRect();
+    return { x: (r.left - s.left) / scale, y: (r.top - s.top) / scale, w: r.width / scale, h: r.height / scale };
+  };
+  const makeBars = (n) => { barsEl.innerHTML = "<i></i>".repeat(n); return [...barsEl.children]; };
+  const T = {
+    fade(tl, from, to) {
+      tl.fromTo(to, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.7, ease: EASE.soft }, 0)
+        .to(from, { autoAlpha: 0, duration: 0.5, ease: EASE.soft }, 0)
+        .addLabel("enter", 0.15);
+    },
+    // 開機：前一頁收成一條光線，新頁從光線展開
+    boot(tl, from, to) {
+      G.set(to, { autoAlpha: 0 });
+      tl.to(from, { scaleY: 0.004, filter: "brightness(2.4)", duration: 0.45, ease: "power4.in" }, 0)
+        .set(from, { autoAlpha: 0 })
+        .fromTo(to, { autoAlpha: 1, scaleY: 0.004, scaleX: 0.04, filter: "brightness(3)" },
+                    { scaleX: 1, duration: 0.32, ease: "power3.out" }, 0.47)
+        .to(to, { scaleY: 1, filter: "brightness(1)", duration: 0.85, ease: EASE.out }, 0.74)
+        .addLabel("enter", 0.85);
+    },
+    // 垂直鏡頭搖移
+    vpan(tl, from, to, dir) {
+      tl.to(from, { yPercent: -100 * dir, duration: 1.1, ease: EASE.inOut }, 0)
+        .fromTo(to, { yPercent: 100 * dir }, { yPercent: 0, duration: 1.1, ease: EASE.inOut }, 0)
+        .addLabel("enter", 0.5);
+    },
+    // 失焦退場、新頁淡入（讓 rail 的繪製當主角）
+    focus(tl, from, to) {
+      tl.to(from, { filter: "blur(16px)", scale: 1.04, autoAlpha: 0, duration: 0.7, ease: EASE.in }, 0)
+        .fromTo(to, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.6, ease: EASE.soft }, 0.4)
+        .addLabel("enter", 0.45);
+    },
+    // 從 rail 上的節點展開新章節
+    node(tl, from, to, dir) {
+      const s = dir > 0 ? to : from;
+      const x = NODE_X[(+s.dataset.stage || 1) - 1], y = RAIL_DOCK + LINE_Y;
+      const shut = `circle(0px at ${x}px ${y}px)`, open = `circle(2300px at ${x}px ${y}px)`;
+      if (dir > 0) {
+        G.set(to, { autoAlpha: 1, clipPath: shut });
+        G.set(pingEl, { left: x, top: y });
+        tl.to(from, { scale: 0.94, opacity: 0.3, transformOrigin: `${x}px ${y}px`, duration: 1.5, ease: EASE.inOut }, 0.2)
+          .fromTo(pingEl, { autoAlpha: 1, scale: 0.15 }, { scale: 2.6, autoAlpha: 0, duration: 0.9, ease: "power2.out" }, 0.55)
+          .to(to, { clipPath: open, duration: 1.3, ease: EASE.inOut }, 0.5)
+          .addLabel("enter", 1.0);
+      } else {
+        G.set(from, { zIndex: 3 });
+        tl.fromTo(from, { clipPath: open }, { clipPath: shut, duration: 1.1, ease: EASE.inOut }, 0)
+          .fromTo(to, { scale: 0.94, opacity: 0.3, transformOrigin: `${x}px ${y}px` },
+                      { scale: 1, opacity: 1, duration: 1.2, ease: EASE.inOut }, 0)
+          .addLabel("enter", 0.55);
+      }
+    },
+    // 銅箔色塊斜向擦除
+    wipe(tl, from, to, dir) {
+      G.set(to, { autoAlpha: 0 });
+      G.set(wipeLayers, { skewX: -14 });
+      tl.fromTo(wipeLayers, { xPercent: 130 * dir, x: 0 }, { xPercent: 0, duration: 0.6, ease: "expo.in", stagger: 0.07 }, 0)
+        .to(from, { x: -160 * dir, duration: 0.6, ease: EASE.in }, 0.05)
+        .set(from, { autoAlpha: 0 })
+        .set(to, { autoAlpha: 1 })
+        .to(wipeLayers, { xPercent: -130 * dir, duration: 0.8, ease: EASE.out, stagger: { each: 0.07, from: "end" } })
+        .addLabel("enter", "<0.05");
+    },
+    // 色條：columns = 三欄（對應實驗室地圖的三個領域）、blinds = 細百葉
+    columns(tl, from, to, dir) { T.bars(tl, from, to, dir, 3); },
+    blinds(tl, from, to, dir) { T.bars(tl, from, to, dir, 12); },
+    bars(tl, from, to, dir, n) {
+      const b = makeBars(n);
+      G.set(to, { autoAlpha: 0 });
+      const o1 = dir > 0 ? "50% 0%" : "50% 100%", o2 = dir > 0 ? "50% 100%" : "50% 0%";
+      tl.fromTo(b, { scaleY: 0, transformOrigin: o1 }, { scaleY: 1, duration: 0.55, ease: "expo.in", stagger: { each: 0.5 / n, from: dir > 0 ? "start" : "end" } }, 0)
+        .to(from, { y: -60 * dir, duration: 0.6, ease: EASE.in }, 0)
+        .set(from, { autoAlpha: 0 })
+        .set(to, { autoAlpha: 1 })
+        .set(b, { transformOrigin: o2 })
+        .to(b, { scaleY: 0, duration: 0.75, ease: EASE.out, stagger: { each: 0.5 / n, from: dir > 0 ? "start" : "end" } })
+        .addLabel("enter", "<0.05");
+      cleanups.push(() => (barsEl.innerHTML = ""));
+    },
+    zoom(tl, from, to, dir) {
+      const big = 1.5, small = 0.82, blur = "blur(14px)";
+      tl.to(from, { scale: dir > 0 ? big : small, autoAlpha: 0, filter: blur, duration: 0.75, ease: EASE.in }, 0)
+        .fromTo(to, { scale: dir > 0 ? small : big, autoAlpha: 0, filter: blur },
+                    { scale: 1, autoAlpha: 1, filter: "blur(0px)", duration: 1.1, ease: EASE.out }, 0.45)
+        .addLabel("enter", 0.55);
+    },
+    // 引言卡的照片飛到原簡報上同一張照片的位置，原簡報從照片向外展開
+    handoff(tl, from, to, dir) {
+      const card = dir > 0 ? from : to, page = dir > 0 ? to : from;
+      if (!card.classList.contains("card")) return T.scan(tl, from, to, dir);
+      const ph = card.querySelector(".ph");
+      const [tx, ty, tw, th] = card.dataset.target.split(",").map(Number);
+      const r = { x: ph.offsetLeft, y: ph.offsetTop, w: ph.offsetWidth };
+      const fly = { x: tx - r.x, y: ty - r.y, scale: tw / r.w, transformOrigin: "0 0" };
+      const rect = `inset(${ty}px ${W - tx - tw}px ${H - ty - th}px ${tx}px)`, full = "inset(0px 0px 0px 0px)";
+      const rest = [...card.querySelectorAll(".c-body, .ph-cap, .c-ghost")];
+      X([ph, ...rest]);
+      if (dir > 0) {
+        G.set(page, { autoAlpha: 0 });
+        tl.to(rest, { x: -70, autoAlpha: 0, duration: 0.5, ease: EASE.in, stagger: 0.05 }, 0)
+          .to(ph, { ...fly, boxShadow: "0 0 0 rgba(0,0,0,0)", duration: 1.0, ease: EASE.inOut }, 0.08)
+          .set(page, { autoAlpha: 1, clipPath: rect }, 1.08)
+          .to(page, { clipPath: full, duration: 0.85, ease: EASE.inOut }, 1.08)
+          .addLabel("enter", 1.2);
+      } else {
+        G.set(page, { zIndex: 3 });
+        tl.fromTo(page, { clipPath: full }, { clipPath: rect, duration: 0.8, ease: EASE.inOut }, 0)
+          .set(page, { autoAlpha: 0 }, 0.8)
+          .fromTo(ph, fly, { x: 0, y: 0, scale: 1, duration: 0.9, ease: EASE.inOut }, 0.8)
+          .addLabel("enter", 0.95);
+      }
+    },
+    // 掃描線：同一位老師的下一頁從右側掃入
+    scan(tl, from, to, dir) {
+      const a = dir > 0 ? `inset(0px 0px 0px ${W}px)` : `inset(0px ${W}px 0px 0px)`;
+      tl.fromTo(to, { clipPath: a, autoAlpha: 1 }, { clipPath: "inset(0px 0px 0px 0px)", duration: 1.0, ease: EASE.inOut }, 0)
+        .fromTo(scanEl, { x: dir > 0 ? W : 0, autoAlpha: 1 }, { x: dir > 0 ? 0 : W, duration: 1.0, ease: EASE.inOut }, 0)
+        .set(scanEl, { autoAlpha: 0 })
+        .to(from, { x: -120 * dir, opacity: 0.25, duration: 1.0, ease: EASE.inOut }, 0)
+        .addLabel("enter", 0.5);
+    },
+    // 水平鏡頭搖移（換教室）
+    pan(tl, from, to, dir) {
+      tl.to(from, { xPercent: -100 * dir, duration: 1.2, ease: EASE.inOut }, 0)
+        .fromTo(to, { xPercent: 100 * dir }, { xPercent: 0, duration: 1.2, ease: EASE.inOut }, 0)
+        .addLabel("enter", 0.55);
+    },
+    // 熄燈 → 聚光燈打開
+    spot(tl, from, to) {
+      const c = (r) => `circle(${r}px at 960px 540px)`;
+      G.set(to, { autoAlpha: 0 }); G.set(from, { zIndex: 3 });
+      tl.fromTo(from, { clipPath: c(1200) }, { clipPath: c(0), duration: 0.7, ease: "expo.in" }, 0)
+        .set(from, { autoAlpha: 0 })
+        .set(to, { autoAlpha: 1, clipPath: c(0) }, 0.85)
+        .to(to, { clipPath: c(330), duration: 0.45, ease: EASE.out }, 0.85)
+        .to(to, { clipPath: c(1200), duration: 0.9, ease: EASE.inOut }, 1.3)
+        .addLabel("enter", 0.95);
+    },
+    // 揭曉：名次數字變形移位，其餘內容抵達
+    reveal(tl, from, to, dir) {
+      const pairs = [...to.querySelectorAll("[data-morph]")]
+        .map(b => [from.querySelector(`[data-morph="${b.dataset.morph}"]`), b]).filter(([a]) => a);
+      const rects = pairs.map(([a, b]) => [stageRect(a), stageRect(b)]);
+      const rest = [...from.children].filter(e => !e.hasAttribute("data-morph"));
+      G.set(to, { autoAlpha: 0 });
+      tl.to(rest, { autoAlpha: 0, filter: "blur(10px)", duration: 0.4, ease: EASE.in }, 0)
+        .set(from, { autoAlpha: 0 }, 0.4)
+        .set(to, { autoAlpha: 1 }, 0.4);
+      pairs.forEach(([, b], i) => {
+        const [ra, rb] = rects[i];
+        X(b);
+        tl.fromTo(b, { x: ra.x - rb.x, y: ra.y - rb.y, scale: ra.h / rb.h, transformOrigin: "0 0" },
+                     { x: 0, y: 0, scale: 1, duration: 1.1, ease: EASE.inOut }, 0.4);
+      });
+      X(rest, "opacity,visibility,filter");
+      tl.addLabel("enter", 0.95);
+    },
+    // 獎品揭曉：衝擊放大
+    punch(tl, from, to) {
+      G.set(to, { autoAlpha: 0 });
+      tl.to(from, { scale: 1.14, filter: "blur(12px)", autoAlpha: 0, duration: 0.45, ease: EASE.in }, 0)
+        .fromTo(to, { autoAlpha: 0, scale: 0.6 }, { autoAlpha: 1, scale: 1, duration: 0.9, ease: "back.out(1.5)" }, 0.38)
+        .addLabel("enter", 0.4);
+    },
+    // 合照閃光
+    flash(tl, from, to) {
+      G.set(to, { autoAlpha: 0 });
+      tl.fromTo(flashEl, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.09, ease: "power2.out" }, 0)
+        .set(from, { autoAlpha: 0 }, 0.12)
+        .set(to, { autoAlpha: 1 }, 0.12)
+        .to(flashEl, { autoAlpha: 0, duration: 1.1, ease: "power2.out" }, 0.2)
+        .addLabel("enter", 0.35);
+    },
+  };
+
+  /* ---------- 元素進場庫：(tl, el, at) ---------- */
+  const split = (el, type, mask) => {
+    const s = SplitText.create(el, { type, mask });
+    cleanups.push(() => s.revert());
+    return s;
+  };
+  const A = {
+    fade:  (tl, el, at) => tl.from(el, { autoAlpha: 0, duration: 0.9, ease: EASE.soft }, at),
+    rise:  (tl, el, at) => tl.from(el, { y: 50, autoAlpha: 0, duration: 1.1, ease: EASE.out }, at),
+    blur:  (tl, el, at) => tl.from(el, { filter: "blur(18px)", autoAlpha: 0, scale: 1.06, duration: 1.3, ease: EASE.out }, at),
+    slide: (tl, el, at) => tl.from(el, { xPercent: 18, autoAlpha: 0, duration: 1.3, ease: EASE.out }, at),
+    pop:   (tl, el, at) => tl.from(el, { scale: 0.7, autoAlpha: 0, duration: 1.0, ease: "back.out(1.8)" }, at),
+    // 遮罩行：HTML 已用 .ln > span 寫好行，避免中文斷行不可控
+    mask(tl, el, at) {
+      const ls = el.querySelectorAll(".ln > span");
+      if (!ls.length) return A.rise(tl, el, at);
+      tl.from(ls, { yPercent: 115, duration: 1.15, ease: EASE.out, stagger: BEAT * 1.2 }, at);
+      const sm = el.querySelector("small");
+      if (sm) tl.from(sm, { autoAlpha: 0, x: -24, duration: 0.9, ease: EASE.out }, at + 0.35);
+    },
+    // 逐字聚焦（中文以字為單位）
+    chars(tl, el, at) {
+      if (!window.SplitText) return A.rise(tl, el, at);
+      const s = split(el, "chars");
+      tl.from(s.chars, { autoAlpha: 0, yPercent: 35, filter: "blur(8px)", duration: 0.75, ease: EASE.out, stagger: 0.022 }, at);
+    },
+    chips(tl, el, at) {
+      tl.from(el.children, { autoAlpha: 0, y: 22, duration: 0.8, ease: EASE.out, stagger: BEAT * 0.6 }, at);
+    },
+    col(tl, el, at) {
+      tl.from(el.querySelector("h3"), { autoAlpha: 0, y: 24, duration: 0.8, ease: EASE.out }, at)
+        .from(el.querySelector("h3"), { borderBottomColor: "rgba(226,105,63,0)", duration: 0.8, ease: EASE.soft }, at)
+        .from(el.querySelectorAll("li"), { autoAlpha: 0, x: -28, duration: 0.8, ease: EASE.out, stagger: BEAT * 0.7 }, at + 0.15);
+    },
+    faces(tl, el, at) {
+      tl.from(el.querySelectorAll("i"), { scale: 0, autoAlpha: 0, duration: 0.9, ease: "back.out(1.6)", stagger: { each: 0.045, grid: [2, 7], from: "center" } }, at)
+        .from(el.querySelectorAll("span"), { autoAlpha: 0, y: 12, duration: 0.7, ease: EASE.out, stagger: { each: 0.045, grid: [2, 7], from: "center" } }, at + 0.2);
+    },
+    bar(tl, el, at) {
+      tl.from(el.children, { scaleX: 0, transformOrigin: "0 50%", duration: 0.8, ease: EASE.inOut, stagger: 0.12 }, at)
+        .from(el.querySelectorAll("b, span"), { autoAlpha: 0, y: 12, duration: 0.6, ease: EASE.out, stagger: 0.06 }, at + 0.45);
+    },
+    focus(tl, el, at) {
+      tl.from(el, { scale: 1.25, autoAlpha: 0, duration: 1.2, ease: EASE.out }, at)
+        .to(el, { scale: 0.985, duration: 0.18, ease: "power2.inOut", yoyo: true, repeat: 1 }, at + 1.0);
+    },
+    draw(tl, el, at) {
+      el.querySelectorAll("path, circle, line, polyline").forEach((p, i) => {
+        const len = p.getTotalLength?.() ?? 0;
+        if (!len) return;
+        tl.fromTo(p, { strokeDasharray: len, strokeDashoffset: len },
+          { strokeDashoffset: 0, duration: 1.2, ease: "power2.inOut", clearProps: "strokeDasharray,strokeDashoffset" }, at + i * BEAT);
+      });
+    },
+    count(tl, el, at) {
+      const target = el.querySelector("b, strong") || el;
+      const final = target.textContent, num = parseInt(final, 10);
+      if (isNaN(num)) return A.rise(tl, el, at);
+      const o = { v: 0 };
+      target.textContent = "0";
+      A.rise(tl, el, at);
+      tl.to(o, { v: num, duration: 1.8, ease: "power3.out",
+        onUpdate: () => (target.textContent = Math.round(o.v)),
+        onComplete: () => (target.textContent = final) }, at);
+      cleanups.push(() => (target.textContent = final));
+    },
+  };
+  // 小隊編號滾動（結束時必定回到設定值）
+  function roll(tl, el, at) {
+    const final = el.textContent;
+    if (!/^\d{1,3}$/.test(final.trim())) return;
+    const o = { t: 0 };
+    tl.to(o, { t: 1, duration: 1.3, ease: "power2.out",
+      onUpdate: () => { if (o.t < 0.92) el.textContent = String(1 + Math.floor(Math.random() * 12)); },
+      onComplete: () => (el.textContent = final) }, at);
+    cleanups.push(() => (el.textContent = final));
+  }
+
+  function enterSlide(tl, slide, dir, at) {
+    const els = [...slide.querySelectorAll("[data-a]")]
+      .map((el, i) => ({ el, step: el.dataset.aStep !== undefined ? +el.dataset.aStep : i }))
+      .sort((a, b) => a.step - b.step);
+    els.forEach(({ el, step }) => (A[el.dataset.a] || A.rise)(tl, el, at + step * BEAT * 1.5));
+    slide.querySelectorAll("[data-roll]").forEach(el => roll(tl, el, at + 0.5));
+    // 粒子：從爆點飛到 CSS 中的落點（靜止狀態 = 散落的落點）
+    const burst = slide.querySelector(".burst");
+    if (burst) {
+      const cx = +burst.dataset.cx, cy = +burst.dataset.cy;
+      tl.from(burst.children, { x: (i, e) => cx - e.offsetLeft, y: (i, e) => cy - e.offsetTop, scale: 0, autoAlpha: 0,
+        duration: 1.6, ease: "expo.out", stagger: 0.008 }, at + 0.05);
+      X(burst.children, "transform,opacity,visibility");
+    }
+    // 引言卡：照片由下往上揭露、背景編號滑入
+    if (slide.classList.contains("card") && dir > 0) {
+      const ph = slide.querySelector(".ph");
+      X(ph, "clipPath");
+      tl.fromTo(ph, { clipPath: "inset(100% 0% 0% 0%)" }, { clipPath: "inset(0% 0% 0% 0%)", duration: 1.2, ease: EASE.inOut }, at)
+        .from(slide.querySelector(".c-ghost"), { x: 120, autoAlpha: 0, duration: 1.6, ease: EASE.out }, at + 0.2);
+    }
+    scenes[slide.id]?.enter?.(tl, slide, dir, at);
+  }
+
+  /* ---------- 細微動態（GSAP 版） ---------- */
+  function startIdle(slide) {
+    if (!G || reduced || !scenes[slide.id]?.idle) return;
+    idleCtx = G.context(() => scenes[slide.id].idle(slide));
+  }
+  function stopIdle() { idleCtx?.revert(); idleCtx = null; }
+
+  /* ---------- 預先解碼鄰近頁的大圖，避免轉場第一幀卡頓 ---------- */
+  function prefetch(i) {
+    [i + 1, i + 2, i - 1].forEach(j => slides[j]?.querySelectorAll("img").forEach(img => img.decode?.().catch(() => {})));
+  }
+
+  /* ---------- 換頁 ---------- */
+  function settle(to, from) {
+    if (from) from.classList.remove("is-active");
+    if (G) {
+      G.set([to, from].filter(Boolean), { clearProps: "all" });
+      const da = to.querySelectorAll("[data-a]");
+      if (da.length) G.set(da, { clearProps: "transform,opacity,visibility,filter" });
+    }
+    cleanups.splice(0).forEach(f => f());
+    root.classList.remove("is-transitioning");
+    busy = false; curTl = null;
+    startIdle(to);
+    prefetch(index);
+    if (pending !== null) { const p = pending; pending = null; if (p !== index) go(p); }
+  }
+
+  function updateHud() {
+    bar.style.transform = `scaleX(${(index + 1) / slides.length})`;
+    counter.innerHTML = `${pad(index + 1)} / ${pad(slides.length)}<b>${slides[index].dataset.title || ""}</b>`;
+    history.replaceState(null, "", `#${index + 1}`);
+  }
+
+  function go(target, dir) {
+    target = clamp(target);
+    if (target === index && !busy) return;
+    if (busy) { pending = target; curTl?.timeScale(4); return; } // 連按：加速完成目前轉場
+    dir = dir ?? (target > index ? 1 : -1);
+    const from = slides[index], to = slides[target];
+    busy = true;
+    root.classList.add("is-transitioning");
+    stopIdle();
+    index = target;
+    updateHud();
+    to.classList.add("is-active");
+
+    if (!G) {
+      to.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 450, easing: "cubic-bezier(.16,1,.3,1)" })
+        .finished.then(() => settle(to, from));
+      return;
+    }
+    G.set(from, { zIndex: 1 }); G.set(to, { zIndex: 2 });
+    const tl = curTl = G.timeline({ onComplete: () => settle(to, from) });
+    railTo(to, tl, 0);
+    if (reduced) { T.fade(tl, from, to, dir); return; }
+    // 相鄰頁才用專屬轉場；目錄遠距跳頁一律用擦除
+    const near = Math.abs(target - slides.indexOf(from)) === 1;
+    const name = near ? (dir > 0 ? to : from).dataset.transition || "fade" : "wipe";
+    (T[name] || T.fade)(tl, from, to, dir);
+    enterSlide(tl, to, dir, tl.labels.enter ?? tl.duration() * 0.5);
+  }
+
+  function intro() {
+    const s = slides[index];
+    s.classList.add("is-active");
+    updateHud();
+    root.classList.add("ready");
+    if (!G || reduced) { if (G) railTo(s, null); return startIdle(s); }
+    busy = true;
+    root.classList.add("is-transitioning");
+    const tl = curTl = G.timeline({ onComplete: () => settle(s) });
+    railTo(s, tl, 0.2);
+    tl.from(s, { autoAlpha: 0, duration: 0.6, ease: EASE.soft }, 0);
+    enterSlide(tl, s, 1, 0.25);
+  }
+
+  /* ---------- 操作者介面 ---------- */
+  const ovMenu = document.getElementById("ov-menu"), ovEdit = document.getElementById("ov-edit"), ovStandby = document.getElementById("ov-standby");
+  const overlays = [ovMenu, ovEdit, ovStandby];
+  const anyOpen = () => overlays.some(o => o.classList.contains("open"));
+  const toggle = (ov, on) => {
+    overlays.forEach(o => o !== ov && o.classList.remove("open"));
+    ov.classList.toggle("open", on ?? !ov.classList.contains("open"));
+    if (ov === ovMenu && ov.classList.contains("open")) buildMenu();
+    if (ov === ovEdit && ov.classList.contains("open")) ovEdit.querySelector("input")?.focus();
+    if (!anyOpen()) document.activeElement?.blur?.();
+  };
+  overlays.forEach(o => o.addEventListener("click", e => { if (e.target.closest("[data-close]") || e.target === o || o === ovStandby) toggle(o, false); }));
+  const STAGES = ["開始前", "01 專題介紹", "02 小隊破冰", "03 休息", "04 團康活動", "05 交流 & 頒獎", "06 大合照", "結尾"];
+  function buildMenu() {
+    const groups = {};
+    slides.forEach((s, i) => (groups[+s.dataset.stage || 0] ??= []).push([s, i]));
+    document.getElementById("menu-grid").innerHTML = Object.entries(groups).map(([st, list]) =>
+      `<section><h5>${STAGES[st] || st}</h5>${list.map(([s, i]) =>
+        `<button data-go="${i}" class="${i === index ? "cur" : ""}"><i>${pad(i + 1)}</i>${s.dataset.title || s.id}</button>`).join("")}</section>`).join("");
+  }
+  document.getElementById("menu-grid").addEventListener("click", e => {
+    const b = e.target.closest("[data-go]"); if (!b) return;
+    toggle(ovMenu, false); go(+b.dataset.go);
+  });
+
+  // 頒獎設定：localStorage 只當這台電腦的便利記憶，讀寫失敗也照常運作
+  const KEY = "csie-assembly-115-awards";
+  const DEF = { "r3.team": "", "r3.prize": "精美獎品", "r2.team": "", "r2.prize": "精美獎品", "r1.team": "", "r1.prize": "雞排", "sp.team": "", "sp.prize": "健康步道" };
+  let AW = { ...DEF };
+  try { Object.assign(AW, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
+  function bindAwards() {
+    document.querySelectorAll("[data-bind]").forEach(el => {
+      const v = (AW[el.dataset.bind] || "").trim();
+      el.textContent = v || (el.dataset.bind.endsWith(".team") ? "?" : DEF[el.dataset.bind]);
+    });
+  }
+  ovEdit.querySelectorAll("input").forEach(inp => {
+    inp.value = AW[inp.dataset.key] ?? "";
+    inp.addEventListener("input", () => {
+      AW[inp.dataset.key] = inp.value;
+      try { localStorage.setItem(KEY, JSON.stringify(AW)); } catch (e) {}
+      bindAwards();
+    });
+  });
+  bindAwards();
+
+  // 倒數：每 15 秒更新一次（分鐘精度）
+  function tickCountdown() {
+    const now = new Date();
+    document.querySelectorAll("[data-until]").forEach(el => {
+      el.dataset.static ??= el.innerHTML;
+      const [h, m] = el.dataset.until.split(":").map(Number);
+      const t = new Date(now); t.setHours(h, m, 0, 0);
+      const mins = Math.ceil((t - now) / 60000);
+      if (mins > 0 && mins <= 90) el.innerHTML = el.dataset.live.replace("{m}", mins);
+      else if (mins <= 0 && mins > -15) el.innerHTML = el.dataset.over;
+      else el.innerHTML = el.dataset.static;
+    });
+  }
+  tickCountdown(); setInterval(tickCountdown, 15000);
+
+  // HUD：只在移動滑鼠時顯示頁碼與頁名
+  let hudTimer;
+  addEventListener("pointermove", e => {
+    if (e.pointerType !== "mouse") return;
+    root.classList.add("show-hud"); clearTimeout(hudTimer);
+    hudTimer = setTimeout(() => root.classList.remove("show-hud"), 2200);
+  });
+
+  /* ---------- 輸入 ---------- */
+  // 轉場中連按會累加（按兩下 = 前進兩頁），完成目前轉場後直接跳到累加目標
+  const next = () => go((pending ?? index) + 1, 1), prev = () => go((pending ?? index) - 1, -1);
+  addEventListener("keydown", e => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const k = e.key, typing = e.target.closest?.("input, textarea, [contenteditable]");
+    if (k === "Escape") { overlays.forEach(o => o.classList.remove("open")); document.activeElement?.blur?.(); return; }
+    if (typing) return;
+    if (k === "m" || k === "M" || k === "Tab") { e.preventDefault(); return toggle(ovMenu); }
+    if (k === "e" || k === "E") { e.preventDefault(); return toggle(ovEdit); }
+    if (k === "b" || k === "B" || k === ".") { e.preventDefault(); return toggle(ovStandby); }
+    if (anyOpen()) { if (ovStandby.classList.contains("open")) toggle(ovStandby, false); return; }
+    if (["ArrowRight", "ArrowDown", "PageDown", " ", "Enter"].includes(k)) { e.preventDefault(); next(); }
+    else if (["ArrowLeft", "ArrowUp", "PageUp", "Backspace"].includes(k)) { e.preventDefault(); prev(); }
+    else if (k === "Home") go(0);
+    else if (k === "End") go(slides.length - 1);
+    else if (k === "f" || k === "F") document.fullscreenElement ? document.exitFullscreen() : root.requestFullscreen?.();
+  });
+  addEventListener("click", e => {
+    if (anyOpen() || e.target.closest("a, button, input, textarea, select, [data-no-nav]")) return;
+    if (performance.now() - swipedAt < 600) return;
+    e.clientX < innerWidth * 0.3 ? prev() : next();
+  });
+  let wheelAcc = 0, wheelLock = 0;
+  addEventListener("wheel", e => {
+    if (anyOpen()) return;
+    const now = performance.now();
+    if (now < wheelLock) return;
+    wheelAcc += e.deltaY + e.deltaX;
+    if (Math.abs(wheelAcc) > 60) { wheelAcc > 0 ? next() : prev(); wheelAcc = 0; wheelLock = now + 900; }
+  }, { passive: true });
+  let tx = 0, ty = 0, swipedAt = 0;
+  addEventListener("touchstart", e => { tx = e.touches[0].clientX; ty = e.touches[0].clientY; }, { passive: true });
+  addEventListener("touchend", e => {
+    if (anyOpen()) return;
+    const dx = e.changedTouches[0].clientX - tx, dy = e.changedTouches[0].clientY - ty;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 50) return;
+    swipedAt = performance.now();
+    (Math.abs(dx) > Math.abs(dy) ? dx : dy) < 0 ? next() : prev();
+  }, { passive: true });
+  addEventListener("hashchange", () => { const n = parseInt(location.hash.slice(1), 10) - 1; if (n >= 0 && n !== index) go(n); });
+
+  /* ---------- 滑鼠視差 [data-depth] ---------- */
+  addEventListener("pointermove", e => {
+    if (!G || reduced || busy || e.pointerType !== "mouse") return;
+    const nx = e.clientX / innerWidth - 0.5, ny = e.clientY / innerHeight - 0.5;
+    slides[index].querySelectorAll("[data-depth]").forEach(el => {
+      const d = +el.dataset.depth || 1;
+      G.to(el, { x: nx * d * 12, y: ny * d * 12, duration: 1.4, ease: "power3.out", overwrite: "auto" });
+    });
+  });
+
+  /* ---------- 公開 API ---------- */
+  window.Deck = {
+    go, next, prev, EASE, BEAT,
+    get index() { return index; },
+    get total() { return slides.length; },
+    get busy() { return busy; },
+    transition: (name, fn) => (T[name] = fn),
+    anim: (name, fn) => (A[name] = fn),
+    scene: (id, def) => (scenes[id] = def),
+    onCleanup: fn => cleanups.push(fn),
+  };
+
+  /* ---------- 啟動 ---------- */
+  const fromHash = parseInt(location.hash.slice(1), 10);
+  if (fromHash) index = clamp(fromHash - 1);
+  const loaded = new Promise(r => (document.readyState === "complete" ? r() : addEventListener("load", r)));
+  const timeout = new Promise(r => setTimeout(r, 3000));
+  Promise.race([Promise.all([document.fonts?.ready, loaded]), timeout]).then(intro);
+})();
+</script>
+</body>
+</html>
