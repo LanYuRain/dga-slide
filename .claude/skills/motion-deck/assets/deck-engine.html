@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Motion Deck</title>
+<!--
+  ================================================================
+  Motion Deck 引擎範本
+  ----------------------------------------------------------------
+  複製此檔後：替換 <title>、字體、:root 色彩、.slide 內容與樣式，
+  並在最下方「作品專屬」script 區塊註冊自訂轉場與場景。
+
+  使用方式
+  · <section class="slide" id="s-xxx" data-transition="wipe">
+      data-transition = 「進入這一頁」時使用的轉場（往回翻時以 dir=-1 反向播放同一個轉場）
+      內建：fade / wipe / iris / push / zoom，可用 Deck.transition(name, fn) 新增
+  · 元素加 data-a="rise|fade|scale|blur|mask|words|chars|draw|count" 即自動編排進場
+      data-a-step="n" 可覆寫順序（預設依 DOM 順序，每步 = 1.5 beat）
+  · 元素加 class="idle-breathe|idle-drift|idle-float|idle-glow|idle-spin" 獲得 CSS 細微動態
+      注意：CSS animation 會覆蓋 transform，不要加在會被 GSAP 動 transform 的元素上（改用 scene.idle）
+  · 外層包裝元素加 data-depth="1~3" 獲得滑鼠視差（不要和 data-a 放同一個元素）
+  · Deck.scene("s-xxx", { enter(tl, el, dir, at){}, idle(el){} }) 自訂該頁編排與 GSAP 細微動態
+
+  鐵則：HTML/CSS 預設狀態 = 靜止完整狀態。動畫只用 from/fromTo「抵達」預設狀態。
+  ================================================================
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b0d12;
+    --ink: #f2f0ea;
+    --muted: #8b8f9c;
+    --accent: #ff5a36;
+    --accent-2: #5b8cff;
+    --wipe-1: #ff5a36;
+    --wipe-2: #f2f0ea;
+    --wipe-3: #5b8cff;
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --font-display: "Space Grotesk", "Noto Sans TC", sans-serif;
+    --font-body: "Noto Sans TC", "Space Grotesk", sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg); color: var(--ink); overflow: hidden; }
+  body { font-family: var(--font-body); -webkit-font-smoothing: antialiased; }
+
+  /* ---------- 舞台：1920×1080 設計座標，JS 等比縮放 ---------- */
+  .stage {
+    position: absolute; left: 50%; top: 50%;
+    width: 1920px; height: 1080px;
+    transform: translate(-50%, -50%);
+    transform-origin: 50% 50%;
+    overflow: hidden;
+    background: var(--bg);
+  }
+  .js:not(.ready) .stage { visibility: hidden; }
+
+  .slide {
+    position: absolute; inset: 0;
+    padding: 120px 160px;
+    visibility: hidden;
+  }
+  .slide.is-active { visibility: visible; }
+  html:not(.js) .slide:first-of-type { visibility: visible; } /* JS 全失效時至少顯示第一頁 */
+
+  /* 色塊擦除轉場用的圖層 */
+  .wipe { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
+  .wipe i { position: absolute; inset: 0; transform: translateX(101%); }
+  .wipe i:nth-child(1) { background: var(--wipe-1); }
+  .wipe i:nth-child(2) { background: var(--wipe-2); }
+  .wipe i:nth-child(3) { background: var(--wipe-3); }
+
+  /* ---------- HUD：進度條與頁碼 ---------- */
+  .hud { position: fixed; inset: auto 0 0 0; height: 48px; pointer-events: none; z-index: 20;
+         font: 500 13px/48px var(--font-display); letter-spacing: .12em; color: var(--muted); }
+  .hud .bar { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: rgba(255,255,255,.08); }
+  .hud .bar i { position: absolute; inset: 0; background: var(--accent); transform-origin: 0 50%;
+                transform: scaleX(0); transition: transform 1.1s var(--ease-out); }
+  .hud .count { position: absolute; right: 24px; bottom: 6px; font-variant-numeric: tabular-nums; }
+
+  /* ---------- 細微動態（靜止狀態），轉場中暫停 ---------- */
+  .idle-breathe { animation: idle-breathe 7s ease-in-out infinite alternate; }
+  .idle-drift   { animation: idle-drift 13s ease-in-out infinite alternate; }
+  .idle-float   { animation: idle-float 9s ease-in-out infinite alternate; }
+  .idle-glow    { animation: idle-glow 5s ease-in-out infinite alternate; }
+  .idle-spin    { animation: idle-spin 60s linear infinite; }
+  @keyframes idle-breathe { to { transform: scale(1.015); opacity: .88; } }
+  @keyframes idle-drift   { to { transform: translate(18px, -12px); } }
+  @keyframes idle-float   { to { transform: translateY(-5px); } }
+  @keyframes idle-glow    { to { opacity: .85; } }
+  @keyframes idle-spin    { to { transform: rotate(360deg); } }
+  .is-transitioning .slide *, .is-transitioning .slide { animation-play-state: paused !important; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .slide *, .slide { animation: none !important; }
+    .hud .bar i { transition: none; }
+  }
+
+  /* ================================================================
+     作品專屬樣式（以下為示範，請全部替換）
+     ================================================================ */
+  .kicker { font: 500 26px/1 var(--font-display); letter-spacing: .3em; text-transform: uppercase; color: var(--accent); }
+  .title  { font: 700 168px/1.02 var(--font-display); letter-spacing: -.035em; margin-top: 48px; }
+  .lead   { font: 400 38px/1.5 var(--font-body); color: var(--muted); max-width: 1100px; margin-top: 56px; }
+  .orb    { position: absolute; right: -180px; top: -160px; width: 900px; height: 900px; border-radius: 50%;
+            background: radial-gradient(circle at 35% 35%, var(--accent), transparent 62%); filter: blur(30px); opacity: .55; }
+  .grid-bg { position: absolute; inset: 0; opacity: .5;
+             background-image: linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px),
+                               linear-gradient(90deg, rgba(255,255,255,.04) 1px, transparent 1px);
+             background-size: 120px 120px; }
+  .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 80px; margin-top: 120px; }
+  .stat b { display: block; font: 700 150px/1 var(--font-display); letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+  .stat span { display: block; margin-top: 24px; font-size: 32px; color: var(--muted); }
+  .h2 { font: 700 96px/1.1 var(--font-display); letter-spacing: -.02em; }
+  .center { display: grid; place-items: center; text-align: center; }
+</style>
+</head>
+<body>
+
+<div class="stage" id="stage">
+
+  <!-- ========== 01 封面 ========== -->
+  <section class="slide" id="s-cover" data-transition="fade">
+    <div class="grid-bg idle-glow"></div>
+    <div data-depth="2" style="position:absolute;inset:0"><div class="orb"></div></div>
+    <div style="position:relative;margin-top:180px">
+      <p class="kicker" data-a="fade">Motion Deck · 2026</p>
+      <h1 class="title" data-a="mask">靜止即完整<br>轉場即表演</h1>
+      <p class="lead" data-a="rise">一份以動態設計標準製作的網頁簡報範本。</p>
+    </div>
+  </section>
+
+  <!-- ========== 02 數據 ========== -->
+  <section class="slide" id="s-stats" data-transition="wipe">
+    <p class="kicker" data-a="fade">By the numbers</p>
+    <h2 class="h2" data-a="words" style="margin-top:32px">三個值得記住的數字</h2>
+    <div class="stats">
+      <div class="stat" data-a="count"><b>1,920</b></div>
+      <div class="stat" data-a="count"><b>60</b></div>
+      <div class="stat" data-a="count"><b>0.10</b></div>
+    </div>
+    <div class="stats" style="margin-top:0">
+      <div class="stat" data-a="fade"><span>設計座標寬度（px）</span></div>
+      <div class="stat" data-a="fade"><span>目標幀率（fps）</span></div>
+      <div class="stat" data-a="fade"><span>一個 beat（秒）</span></div>
+    </div>
+  </section>
+
+  <!-- ========== 03 結尾 ========== -->
+  <section class="slide center" id="s-end" data-transition="iris">
+    <div>
+      <svg data-a="draw" width="220" height="220" viewBox="0 0 220 220" fill="none" stroke="var(--accent)" stroke-width="3" style="margin:0 auto 48px;display:block">
+        <circle cx="110" cy="110" r="100"/><path d="M60 112 L96 148 L162 76"/>
+      </svg>
+      <h2 class="h2" data-a="mask">換成你的故事</h2>
+      <p class="lead" data-a="rise" style="margin:40px auto 0">← → 翻頁 · F 全螢幕</p>
+    </div>
+  </section>
+
+  <div class="wipe" aria-hidden="true"><i></i><i></i><i></i></div>
+</div>
+
+<div class="hud" aria-hidden="true"><div class="bar"><i></i></div><div class="count"></div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/SplitText.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/Flip.min.js"></script>
+
+<!-- ================================================================
+     引擎（一般不需修改）
+     ================================================================ -->
+<script>
+(() => {
+  const W = 1920, H = 1080, BEAT = 0.1;
+  const EASE = { out: "expo.out", in: "power3.in", inOut: "expo.inOut", soft: "sine.inOut" };
+  const root = document.documentElement;
+  const stage = document.getElementById("stage");
+  const slides = [...stage.querySelectorAll(".slide")];
+  const wipeLayers = [...stage.querySelectorAll(".wipe i")];
+  const bar = document.querySelector(".hud .bar i");
+  const counter = document.querySelector(".hud .count");
+  const G = window.gsap;
+  const mq = matchMedia("(prefers-reduced-motion: reduce)");
+  let reduced = mq.matches;
+  mq.addEventListener?.("change", e => (reduced = e.matches));
+
+  if (G) G.registerPlugin(...[window.SplitText, window.Flip].filter(Boolean));
+  root.classList.add("js");
+
+  let index = 0, busy = false, pending = null, idleCtx = null, cleanups = [];
+  const scenes = {};
+  const clamp = i => Math.max(0, Math.min(slides.length - 1, i));
+  const pad = n => String(n).padStart(2, "0");
+
+  /* ---------- 舞台縮放 ---------- */
+  const fit = () => {
+    const s = Math.min(innerWidth / W, innerHeight / H);
+    stage.style.transform = `translate(-50%, -50%) scale(${s})`;
+  };
+  addEventListener("resize", fit); fit();
+
+  /* ---------- 轉場庫：(tl, from, to, dir) ，需加入 "enter" 標籤 ---------- */
+  const T = {
+    fade(tl, from, to) {
+      tl.fromTo(to, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.7, ease: EASE.soft }, 0)
+        .to(from, { autoAlpha: 0, duration: 0.5, ease: EASE.soft }, 0)
+        .addLabel("enter", 0.15);
+    },
+    wipe(tl, from, to, dir) {
+      G.set(to, { autoAlpha: 0 });
+      tl.fromTo(wipeLayers, { xPercent: 101 * dir, x: 0 }, { xPercent: 0, duration: 0.6, ease: "expo.in", stagger: 0.07 }, 0)
+        .to(from, { x: -140 * dir, duration: 0.6, ease: EASE.in }, 0.05)
+        .set(from, { autoAlpha: 0 })
+        .set(to, { autoAlpha: 1 })
+        .to(wipeLayers, { xPercent: -101 * dir, duration: 0.8, ease: EASE.out, stagger: { each: 0.07, from: "end" } })
+        .addLabel("enter", "<0.05");
+    },
+    iris(tl, from, to, dir) {
+      const open = "circle(75% at 50% 50%)", shut = "circle(0% at 50% 50%)";
+      if (dir > 0) {
+        tl.fromTo(to, { clipPath: shut, autoAlpha: 1 }, { clipPath: open, duration: 1.2, ease: EASE.inOut }, 0)
+          .to(from, { scale: 0.9, autoAlpha: 0, duration: 1.2, ease: EASE.inOut }, 0);
+      } else {
+        G.set(from, { zIndex: 3 });
+        tl.fromTo(from, { clipPath: open }, { clipPath: shut, duration: 1.1, ease: EASE.inOut }, 0)
+          .fromTo(to, { scale: 0.9 }, { scale: 1, duration: 1.2, ease: EASE.inOut }, 0);
+      }
+      tl.addLabel("enter", 0.5);
+    },
+    push(tl, from, to, dir) {
+      tl.to(from, { xPercent: -25 * dir, autoAlpha: 0, duration: 0.7, ease: EASE.in }, 0)
+        .fromTo(to, { xPercent: 25 * dir, autoAlpha: 0 }, { xPercent: 0, autoAlpha: 1, duration: 1.1, ease: EASE.out }, 0.4)
+        .addLabel("enter", 0.45);
+    },
+    zoom(tl, from, to, dir) {
+      const big = 1.5, small = 0.82, blur = "blur(14px)";
+      tl.to(from, { scale: dir > 0 ? big : small, autoAlpha: 0, filter: blur, duration: 0.75, ease: EASE.in }, 0)
+        .fromTo(to, { scale: dir > 0 ? small : big, autoAlpha: 0, filter: blur },
+                    { scale: 1, autoAlpha: 1, filter: "blur(0px)", duration: 1.1, ease: EASE.out }, 0.45)
+        .addLabel("enter", 0.55);
+    },
+  };
+
+  /* ---------- 元素進場庫：(tl, el, at) ---------- */
+  const split = (el, type, mask) => {
+    const s = SplitText.create(el, { type, mask });
+    cleanups.push(() => s.revert());
+    return s;
+  };
+  const A = {
+    fade:  (tl, el, at) => tl.from(el, { autoAlpha: 0, duration: 0.9, ease: EASE.soft }, at),
+    rise:  (tl, el, at) => tl.from(el, { y: 60, autoAlpha: 0, duration: 1.1, ease: EASE.out }, at),
+    scale: (tl, el, at) => tl.from(el, { scale: 0.86, autoAlpha: 0, duration: 1.1, ease: "back.out(1.4)" }, at),
+    blur:  (tl, el, at) => tl.from(el, { filter: "blur(16px)", autoAlpha: 0, scale: 1.04, duration: 1.2, ease: EASE.out }, at),
+    mask(tl, el, at) {
+      if (!window.SplitText) return A.rise(tl, el, at);
+      const s = split(el, "lines", "lines");
+      tl.from(s.lines, { yPercent: 110, duration: 1.2, ease: EASE.out, stagger: BEAT }, at);
+    },
+    words(tl, el, at) {
+      if (!window.SplitText) return A.rise(tl, el, at);
+      const s = split(el, "words");
+      tl.from(s.words, { y: 40, autoAlpha: 0, filter: "blur(8px)", duration: 0.9, ease: EASE.out, stagger: BEAT * 0.6 }, at);
+    },
+    chars(tl, el, at) {
+      if (!window.SplitText) return A.rise(tl, el, at);
+      const s = split(el, "chars");
+      tl.from(s.chars, { yPercent: 60, autoAlpha: 0, rotateX: -80, duration: 0.8, ease: EASE.out, stagger: BEAT * 0.3 }, at);
+    },
+    draw(tl, el, at) {
+      el.querySelectorAll("path, circle, line, polyline, polygon, rect, ellipse").forEach((p, i) => {
+        const len = p.getTotalLength?.() ?? 0;
+        if (!len) return;
+        tl.fromTo(p, { strokeDasharray: len, strokeDashoffset: len },
+          { strokeDashoffset: 0, duration: 1.4, ease: "power2.inOut", clearProps: "strokeDasharray,strokeDashoffset" },
+          at + i * BEAT * 2);
+      });
+    },
+    count(tl, el, at) {
+      // 計數目標 = 元素內文中的第一個數字；結束時還原為原始文字，保證最終值精確
+      const target = el.querySelector("b, strong, .num") || el;
+      const final = target.textContent;
+      const m = final.match(/\d[\d,]*(\.\d+)?/);
+      if (!m) return A.rise(tl, el, at);
+      const num = parseFloat(m[0].replace(/,/g, ""));
+      const dec = (m[1] || "").length - (m[1] ? 1 : 0);
+      const comma = m[0].includes(",");
+      const fmt = v => {
+        const s = v.toFixed(dec);
+        return comma ? Number(s).toLocaleString("en-US", { minimumFractionDigits: dec, maximumFractionDigits: dec }) : s;
+      };
+      const o = { v: 0 };
+      target.textContent = final.replace(m[0], fmt(0));
+      A.rise(tl, el, at);
+      tl.to(o, { v: num, duration: 1.6, ease: "power3.out",
+        onUpdate: () => (target.textContent = final.replace(m[0], fmt(o.v))),
+        onComplete: () => (target.textContent = final) }, at);
+      cleanups.push(() => (target.textContent = final));
+    },
+  };
+
+  function enterSlide(tl, slide, dir, at) {
+    const els = [...slide.querySelectorAll("[data-a]")]
+      .map((el, i) => ({ el, step: el.dataset.aStep !== undefined ? +el.dataset.aStep : i }))
+      .sort((a, b) => a.step - b.step);
+    els.forEach(({ el, step }) => (A[el.dataset.a] || A.rise)(tl, el, at + step * BEAT * 1.5));
+    scenes[slide.id]?.enter?.(tl, slide, dir, at);
+  }
+
+  /* ---------- 細微動態（GSAP 版，由 Deck.scene 的 idle 提供） ---------- */
+  function startIdle(slide) {
+    if (!G || reduced || !scenes[slide.id]?.idle) return;
+    idleCtx = G.context(() => scenes[slide.id].idle(slide));
+  }
+  function stopIdle() { idleCtx?.revert(); idleCtx = null; }
+
+  /* ---------- 換頁 ---------- */
+  function settle(to, from) {
+    if (from) from.classList.remove("is-active");
+    if (G) {
+      G.set([to, from].filter(Boolean), { clearProps: "all" });
+      G.set(to.querySelectorAll("[data-a]"), { clearProps: "transform,opacity,visibility,filter" });
+    }
+    cleanups.splice(0).forEach(f => f());
+    root.classList.remove("is-transitioning");
+    busy = false;
+    startIdle(to);
+    if (pending !== null) { const p = pending; pending = null; go(p); }
+  }
+
+  function updateHud() {
+    bar.style.transform = `scaleX(${(index + 1) / slides.length})`;
+    counter.textContent = `${pad(index + 1)} / ${pad(slides.length)}`;
+    history.replaceState(null, "", `#${index + 1}`);
+  }
+
+  function go(target, dir) {
+    target = clamp(target);
+    if (target === index) return;
+    if (busy) { pending = target; return; }
+    dir = dir ?? (target > index ? 1 : -1);
+    const from = slides[index], to = slides[target];
+    busy = true;
+    root.classList.add("is-transitioning");
+    stopIdle();
+    index = target;
+    updateHud();
+    to.classList.add("is-active");
+
+    if (!G) { // CDN 失效：Web Animations 淡入
+      to.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 450, easing: "cubic-bezier(.16,1,.3,1)" })
+        .finished.then(() => settle(to, from));
+      return;
+    }
+    G.set(from, { zIndex: 1 }); G.set(to, { zIndex: 2 });
+    const tl = G.timeline({ onComplete: () => settle(to, from) });
+    if (reduced) { T.fade(tl, from, to, dir); return; }
+    const name = (dir > 0 ? to : from).dataset.transition || "fade";
+    (T[name] || T.fade)(tl, from, to, dir);
+    enterSlide(tl, to, dir, tl.labels.enter ?? tl.duration() * 0.5);
+  }
+
+  function intro() {
+    const s = slides[index];
+    s.classList.add("is-active");
+    updateHud();
+    root.classList.add("ready");
+    if (!G || reduced) return startIdle(s);
+    busy = true;
+    root.classList.add("is-transitioning");
+    const tl = G.timeline({ onComplete: () => settle(s) });
+    tl.from(s, { autoAlpha: 0, duration: 0.6, ease: EASE.soft }, 0);
+    enterSlide(tl, s, 1, 0.25);
+  }
+
+  /* ---------- 輸入 ---------- */
+  const next = () => go(index + 1, 1), prev = () => go(index - 1, -1);
+  addEventListener("keydown", e => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const k = e.key;
+    if (["ArrowRight", "ArrowDown", "PageDown", " ", "Enter"].includes(k)) { e.preventDefault(); next(); }
+    else if (["ArrowLeft", "ArrowUp", "PageUp", "Backspace"].includes(k)) { e.preventDefault(); prev(); }
+    else if (k === "Home") go(0);
+    else if (k === "End") go(slides.length - 1);
+    else if (k === "f" || k === "F") document.fullscreenElement ? document.exitFullscreen() : root.requestFullscreen?.();
+  });
+  addEventListener("click", e => {
+    if (e.target.closest("a, button, input, textarea, select, [data-no-nav]")) return;
+    if (performance.now() - swipedAt < 600) return;
+    e.clientX < innerWidth * 0.3 ? prev() : next();
+  });
+  let wheelAcc = 0, wheelLock = 0;
+  addEventListener("wheel", e => {
+    const now = performance.now();
+    if (now < wheelLock) return;
+    wheelAcc += e.deltaY + e.deltaX;
+    if (Math.abs(wheelAcc) > 60) { wheelAcc > 0 ? next() : prev(); wheelAcc = 0; wheelLock = now + 900; }
+  }, { passive: true });
+  let tx = 0, ty = 0, swipedAt = 0;
+  addEventListener("touchstart", e => { tx = e.touches[0].clientX; ty = e.touches[0].clientY; }, { passive: true });
+  addEventListener("touchend", e => {
+    const dx = e.changedTouches[0].clientX - tx, dy = e.changedTouches[0].clientY - ty;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 50) return;
+    swipedAt = performance.now();
+    (Math.abs(dx) > Math.abs(dy) ? dx : dy) < 0 ? next() : prev();
+  }, { passive: true });
+  addEventListener("hashchange", () => go(parseInt(location.hash.slice(1), 10) - 1 || 0));
+
+  /* ---------- 滑鼠視差 [data-depth] ---------- */
+  addEventListener("pointermove", e => {
+    if (!G || reduced || busy || e.pointerType !== "mouse") return;
+    const nx = e.clientX / innerWidth - 0.5, ny = e.clientY / innerHeight - 0.5;
+    slides[index].querySelectorAll("[data-depth]").forEach(el => {
+      const d = +el.dataset.depth || 1;
+      G.to(el, { x: nx * d * 12, y: ny * d * 12, duration: 1.4, ease: "power3.out", overwrite: "auto" });
+    });
+  });
+
+  /* ---------- 公開 API ---------- */
+  window.Deck = {
+    go, next, prev, EASE, BEAT,
+    get index() { return index; },
+    get total() { return slides.length; },
+    transition: (name, fn) => (T[name] = fn),
+    anim: (name, fn) => (A[name] = fn),
+    scene: (id, def) => (scenes[id] = def),
+    onCleanup: fn => cleanups.push(fn),
+  };
+
+  /* ---------- 啟動：等字體（SplitText 斷行需要）與作品 script 註冊完畢 ---------- */
+  const fromHash = parseInt(location.hash.slice(1), 10);
+  if (fromHash) index = clamp(fromHash - 1);
+  const loaded = new Promise(r => (document.readyState === "complete" ? r() : addEventListener("load", r)));
+  const timeout = new Promise(r => setTimeout(r, 3000));
+  Promise.race([Promise.all([document.fonts?.ready, loaded]), timeout]).then(intro);
+})();
+</script>
+
+<!-- ================================================================
+     作品專屬：自訂轉場、場景編排、GSAP 細微動態
+     ================================================================ -->
+<script>
+  if (window.gsap) {
+    // 範例：自訂某頁的額外編排與細微動態
+    Deck.scene("s-cover", {
+      enter(tl, el, dir, at) {
+        tl.from(el.querySelector(".orb"), { scale: 0.6, autoAlpha: 0, duration: 2, ease: Deck.EASE.out }, at - 0.2);
+      },
+      idle(el) {
+        // GSAP 細微動態：轉場離開時自動 revert
+        gsap.to(el.querySelector(".orb"), { scale: 1.03, opacity: 0.45, duration: 6, ease: "sine.inOut", yoyo: true, repeat: -1 });
+      },
+    });
+  }
+</script>
+</body>
+</html>

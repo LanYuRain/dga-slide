@@ -1,0 +1,24 @@
+# 原始素材：主持逐字稿與甲方提供的家長日簡報（檔案大、屬內部資料）
+docs/*.pdf
+
+# Claude Code 本機設定（個人權限設定，不該進版控）
+.claude/settings.local.json
+
+# 截圖、暫存與建置產物
+shots/
+*.png
+!assets/**/*.png
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# 系統與編輯器
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+*~
