@@ -1,0 +1,1498 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>資工系期初系員大會</title>
+<!--
+  資工系期初系員大會 · 動態簡報
+  概念：把今晚當成一支正在執行的程式。開場是開機、流程是 profiler 火焰圖、
+  底部狀態列是整晚 180 分鐘的時間軸，每個段落從時間軸「放大」成整個畫面。
+  由 build.py 組裝（家長日簡報頁面、字型子集、GSAP 都內嵌，斷網可播放）。
+  操作：← → / 空白鍵 / 點擊 / 滑動翻頁，F 全螢幕；頒獎頁按 1–4 揭曉小隊、0 清除，每次進入頒獎頁都會重新從「?」開始。
+-->
+<style>
+/*@@FONTS@@*/
+:root {
+  --bg: #0a0d11; --bg2: #0f141a; --panel: #121920; --line: #1f2832; --line2: #2b3643;
+  --ink: #eef2f6; --ink2: #c4cdd7; --dim: #8592a1; --mute: #4c5766;
+  --lime: #c6f432; --cyan: #46d9ff; --pink: #ff5c9d; --amber: #ffbe3d; --violet: #9a8cff; --red: #ff4f4f;
+  --sans: "NTC", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  --mono: "JBM", "NTC", "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  --ease: cubic-bezier(.7, 0, .2, 1);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: #05070a; color: var(--ink); overflow: hidden; touch-action: pinch-zoom; }  /* 讓水平滑動交給翻頁，不被瀏覽器當成捲動 */
+ol, ul { list-style: none; }
+b, strong { font-weight: inherit; }
+em, i { font-style: normal; }
+
+/* ---------------- 引擎基礎 ---------------- */
+.stage {
+  position: absolute; left: 50%; top: 50%; width: 1920px; height: 1080px;
+  transform: translate(-50%, -50%); overflow: hidden;
+  background: var(--bg); font-family: var(--sans); color: var(--ink);
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+}
+.js:not(.ready) .stage { visibility: hidden; }
+.slide { position: absolute; inset: 0; visibility: hidden; z-index: 1; }
+.slide.is-active { visibility: visible; }
+html:not(.js) .slide:first-of-type { visibility: visible; }
+.is-transitioning .slide, .is-transitioning .slide * { animation-play-state: paused !important; }
+
+/* 背景：點陣 + 極慢漂移的光暈 */
+.stage::before { content: ""; position: absolute; inset: 0; z-index: 0;
+  background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,.075) 1.2px, transparent 1.6px);
+  background-size: 48px 48px; background-position: 24px 24px; }
+.stage::after { content: ""; position: absolute; z-index: 0; width: 1500px; height: 1500px; left: -420px; top: -620px;
+  background: radial-gradient(closest-side, rgba(198,244,50,.075), rgba(70,217,255,.03) 55%, transparent);
+  animation: drift 46s ease-in-out infinite alternate; }
+@keyframes drift { to { transform: translate(260px, 180px); } }
+
+.fx { position: absolute; z-index: 20; pointer-events: none; }
+.k { font: 500 30px/1.3 var(--mono); color: var(--dim); letter-spacing: .01em; white-space: pre; }
+.lime { color: var(--lime); } .cyan { color: var(--cyan); } .pink { color: var(--pink); } .amber { color: var(--amber); } .mute { color: var(--mute); }
+.f-sys { --fc: var(--lime); } .f-net { --fc: var(--cyan); } .f-sw { --fc: var(--pink); }
+.t1 { --tc: var(--lime); } .t2 { --tc: var(--cyan); } .t3 { --tc: var(--pink); } .t4 { --tc: var(--violet); }
+.ic { stroke: currentColor; fill: none; stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---------------- 狀態列（整晚的時間軸） ---------------- */
+.sb { position: absolute; left: 0; right: 0; bottom: 0; height: 56px; z-index: 30;
+  display: flex; align-items: center; gap: 30px; padding: 0 30px;
+  background: #06080b; border-top: 1px solid var(--line);
+  font: 500 22px/1 var(--mono); color: var(--dim);
+  transition: transform .6s var(--ease); }
+.stage.bar-off .sb { transform: translateY(100%); }
+.sb-st { display: flex; align-items: center; gap: 10px; min-width: 112px; font-weight: 700; color: var(--lime); }
+.sb-st i { width: 12px; height: 12px; border-radius: 50%; background: currentColor; box-shadow: 0 0 12px currentColor; }
+.sb[data-st="wait"] .sb-st { color: var(--amber); }
+.sb[data-st="sleep"] .sb-st { color: var(--violet); }
+.sb[data-st="done"] .sb-st { color: var(--cyan); }
+.sb-crumb { flex: 1; display: flex; gap: 14px; white-space: nowrap; overflow: hidden; }
+.sb-crumb b { color: var(--mute); }
+.sb-crumb .it { color: var(--ink); }
+.sb-crumb.bump .it { animation: crumb .5s ease-out; }
+@keyframes crumb { from { opacity: 0; } }
+.sb-time { color: var(--ink2); }
+.sb-tl { position: relative; width: 520px; height: 12px; }
+.sb-tl .sg { position: absolute; top: 0; bottom: 0; border-right: 2px solid #06080b; opacity: .5; transition: opacity .5s; }
+.sb-tl .sg.on { opacity: 1; }
+.sg[data-k="talk"] { background: var(--lime); } .sg[data-k="ice"] { background: var(--cyan); }
+.sg[data-k="rest"] { background: var(--violet); } .sg[data-k="games"] { background: var(--pink); }
+.sg[data-k="move"] { background: repeating-linear-gradient(135deg, #7d8a98 0 3px, transparent 3px 6px); }
+.sg[data-k="award"] { background: var(--amber); }
+.sb-head { position: absolute; top: -9px; bottom: -9px; width: 3px; margin-left: -1px; background: var(--ink);
+  left: calc(var(--p, 0) * 100%); transition: left .9s var(--ease); box-shadow: 0 0 10px rgba(255,255,255,.6); }
+.sb-clock { color: var(--ink2); min-width: 70px; text-align: right; }
+.sb-n { min-width: 92px; text-align: right; color: var(--mute); }
+.sb-n b { color: var(--ink2); }
+
+/* ---------------- 01 等待開始 ---------------- */
+#s-wait .w-top { position: absolute; left: 120px; top: 100px; display: flex; align-items: center; gap: 18px; }
+.dot { width: 16px; height: 16px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 18px var(--amber);
+  animation: breathe 2.6s ease-in-out infinite; }
+@keyframes breathe { 50% { opacity: .86; } }
+#s-wait .w-lbl { position: absolute; left: 124px; top: 236px; font: 700 40px/1 var(--sans); color: var(--dim); }
+#s-wait .w-time { position: absolute; left: 106px; top: 290px; font: 700 300px/1 var(--mono); letter-spacing: -.02em; }
+#s-wait .w-title { position: absolute; left: 120px; top: 618px; font: 900 92px/1.1 var(--sans); letter-spacing: .02em; }
+#s-wait .w-meta { position: absolute; left: 124px; top: 748px; font: 500 32px/1 var(--sans); color: var(--dim); }
+#s-wait .w-note { position: absolute; left: 120px; top: 836px; display: flex; align-items: center; gap: 22px;
+  padding: 22px 34px 22px 26px; border: 2px solid var(--amber); border-radius: 14px; font: 700 42px/1 var(--sans); }
+#s-wait .w-note svg { width: 54px; height: 54px; color: var(--amber); }
+#s-wait .w-note b { color: var(--amber); }
+
+/* 程式碼面板（等待頁與結尾頁共用） */
+.code { position: absolute; left: 1160px; top: 196px; width: 640px; padding: 0 0 26px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 18px; font: 500 28px/1 var(--mono); }
+.code-bar { display: flex; align-items: center; gap: 10px; height: 64px; padding: 0 26px; border-bottom: 1px solid var(--line);
+  font-size: 22px; color: var(--dim); }
+.code-bar i { width: 13px; height: 13px; border-radius: 50%; background: var(--line2); }
+.code-bar span { margin-left: 14px; }
+.code ol { counter-reset: ln; padding-top: 14px; }
+.code li { position: relative; display: grid; grid-template-columns: 64px 1fr auto; align-items: center; height: 56px;
+  padding: 0 30px 0 22px; white-space: pre; color: var(--ink2); }
+.code li::before { counter-increment: ln; content: counter(ln, decimal-leading-zero); color: var(--mute); font-size: 22px; }
+.code li em { font-size: 24px; color: var(--mute); }
+.code .kw { color: var(--pink); } .code .fn { color: var(--cyan); } .code .nu { color: var(--amber); } .code .pa { color: var(--ink2); opacity: .75; }
+.code li.cur { background: rgba(198,244,50,.1); box-shadow: inset 5px 0 var(--lime); }
+.code li.cur em { color: var(--lime); }
+.code li .ck { position: absolute; right: 26px; width: 28px; height: 28px; }
+
+/* ---------------- 02 開場 ---------------- */
+#s-hello .h-cmd { position: absolute; left: 120px; top: 290px; color: var(--ink2); }
+#s-hello .h-cmd b { color: var(--lime); }
+#s-hello .h-l1 { position: absolute; left: 116px; top: 372px; font: 700 88px/1 var(--sans); color: var(--ink2); }
+#s-hello .h-l2 { position: absolute; left: 108px; top: 486px; font: 900 168px/1 var(--sans); letter-spacing: .01em; white-space: nowrap; }
+#s-hello .caret { position: absolute; left: 1640px; top: 494px; width: 22px; height: 156px; background: var(--lime);
+  animation: breathe 2.2s ease-in-out infinite; }
+#s-hello .h-sub { position: absolute; left: 120px; top: 716px; font: 500 48px/1.3 var(--sans); color: var(--ink2); }
+#s-hello .h-meta { position: absolute; left: 120px; top: 900px; font: 500 30px/1 var(--sans); color: var(--dim); }
+#s-hello .h-pid { position: absolute; right: 120px; top: 900px; }
+
+/* ---------------- 03 場地須知 ---------------- */
+#s-rules .r-k { position: absolute; left: 120px; top: 120px; }
+#s-rules .r-title { position: absolute; left: 114px; top: 170px; font: 900 128px/1 var(--sans); }
+#s-rules .r-list { position: absolute; left: 120px; top: 410px; width: 1680px; }
+#s-rules .r-row { display: grid; grid-template-columns: 10px 170px 1fr; align-items: center; height: 230px;
+  border-top: 2px solid var(--line); }
+#s-rules .r-row:last-child { border-bottom: 2px solid var(--line); }
+#s-rules .r-bar { height: 150px; background: var(--rc); border-radius: 4px; }
+#s-rules .r-ic { justify-self: center; width: 104px; height: 104px; color: var(--rc); }
+#s-rules .r-tag { font: 600 28px/1 var(--mono); color: var(--rc); margin-bottom: 20px; }
+#s-rules .r-txt { font: 700 80px/1.1 var(--sans); }
+#s-rules .r-txt b { color: var(--rc); }
+#s-rules .r-a { --rc: var(--amber); } #s-rules .r-b { --rc: var(--cyan); }
+
+/* ---------------- 04 今晚流程：火焰圖 ---------------- */
+#s-agenda .a-k { position: absolute; left: 120px; top: 120px; }
+#s-agenda .a-title { position: absolute; left: 114px; top: 170px; font: 900 128px/1 var(--sans); }
+#s-agenda .fl { position: absolute; left: 120px; top: 392px; width: 1680px; height: 420px; }
+.fl-root { position: absolute; left: 0; top: 0; width: 1680px; height: 62px; display: flex; align-items: center; justify-content: space-between;
+  padding: 0 22px; background: #1a222c; font: 500 28px/1 var(--mono); color: var(--ink2); }
+.fl-root span { color: var(--dim); }
+.fl-f { position: absolute; top: 70px; height: 156px; padding: 20px 18px; color: #0a0d11; overflow: hidden;
+  box-shadow: inset -3px 0 var(--bg); }
+.fl-f b { display: block; font: 900 42px/1.15 var(--sans); }
+.fl-f span { display: block; margin-top: 12px; font: 600 24px/1 var(--mono); opacity: .72; }
+.fl-f.talk { background: var(--lime); } .fl-f.ice { background: var(--cyan); }
+.fl-f.rest { background: var(--violet); } .fl-f.games { background: var(--pink); } .fl-f.award { background: var(--amber); }
+.fl-f.move, .fl-s.run { background: repeating-linear-gradient(135deg, #5a6574 0 5px, #232b35 5px 10px); }
+.fl-f.award b { font-size: 38px; }
+.fl-f.ice, .fl-f.rest, .fl-f.award { padding: 20px 12px; }
+.fl-f.ice b, .fl-f.rest b { font-size: 34px; }
+.fl-s, .fl-c { position: absolute; top: 234px; height: 74px; display: flex; align-items: center; justify-content: center;
+  box-shadow: inset -3px 0 var(--bg); font: 700 28px/1 var(--sans); color: #0a0d11; }
+.fl-c { width: 40px; background: color-mix(in srgb, var(--fc) 72%, var(--bg)); }
+.fl-s.g { background: color-mix(in srgb, var(--pink) 70%, var(--bg)); }
+.fl-s.aw { background: color-mix(in srgb, var(--amber) 70%, var(--bg)); font-size: 24px; }
+.fl-ax { position: absolute; left: 0; top: 326px; width: 1680px; height: 90px; border-top: 2px solid var(--line2); }
+.fl-ax i { position: absolute; top: 0; width: 2px; height: 14px; background: var(--line2); }
+.fl-ax span { position: absolute; top: 24px; transform: translateX(-50%); font: 500 26px/1.3 var(--mono); color: var(--dim); text-align: center; white-space: nowrap; }
+.fl-ax span:first-of-type { transform: none; } .fl-ax span:last-of-type { transform: translateX(-100%); }
+.fl-ax span small { display: block; font: 700 24px/1.3 var(--sans); color: var(--ink2); }
+#s-agenda .a-lg { position: absolute; left: 120px; top: 900px; display: flex; gap: 44px; font: 500 28px/1 var(--sans); color: var(--ink2); }
+#s-agenda .a-lg span { display: flex; align-items: center; gap: 12px; }
+#s-agenda .a-lg i { width: 22px; height: 22px; border-radius: 4px; background: var(--fc); }
+#s-agenda .a-lg i.hatch { background: repeating-linear-gradient(135deg, #5a6574 0 4px, #232b35 4px 8px); }
+.aph { width: 3px; background: var(--ink); box-shadow: 0 0 18px 2px rgba(255,255,255,.55); }
+.aph b { position: absolute; left: 10px; top: -8px; font: 700 24px/1 var(--mono); color: var(--ink); white-space: nowrap; }
+
+/* ---------------- 段落開頭（從時間軸放大） ---------------- */
+.sec { background: var(--sbg); color: var(--sink); }
+.sec-talk { --sbg: var(--lime); --sink: #0a0d11; }
+.sec-ice { --sbg: var(--cyan); --sink: #0a0d11; }
+.sec-games { --sbg: var(--pink); --sink: #0a0d11; }
+.sec-award { --sbg: var(--amber); --sink: #0a0d11; }
+.sec-rest { --sbg: #191b40; --sink: var(--ink); }
+.sec-time { position: absolute; left: 120px; top: 120px; font: 700 46px/1 var(--mono); white-space: pre; }
+.sec-no { position: absolute; right: 70px; top: 40px; font: 800 560px/1 var(--mono); color: transparent;
+  -webkit-text-stroke: 4px rgba(10,13,17,.2); letter-spacing: -.04em; }
+.sec-rest .sec-no { -webkit-text-stroke-color: rgba(154,140,255,.22); }
+.sec-title { position: absolute; left: 104px; top: 330px; font: 900 300px/1 var(--sans); letter-spacing: .02em; white-space: nowrap; }
+.sec-award .sec-title { font-size: 220px; top: 380px; }
+.sec-call { position: absolute; left: 120px; top: 708px; font: 600 40px/1 var(--mono); white-space: pre; }
+.sec-call em { opacity: .55; }
+.sec-sub { position: absolute; left: 120px; top: 792px; font: 700 56px/1.2 var(--sans); }
+/* 休息 */
+.sec-rest .sec-title { font-size: 240px; top: 300px; }
+.sec-rest .sec-call { top: 620px; color: var(--violet); }
+.rest-back { position: absolute; left: 120px; top: 716px; display: flex; align-items: baseline; gap: 28px; }
+.rest-back b { font: 700 150px/1 var(--mono); color: var(--violet); }
+.rest-back span { font: 700 60px/1 var(--sans); }
+.rest-tip { position: absolute; left: 124px; top: 902px; font: 500 36px/1 var(--sans); color: var(--ink2); }
+.rest-ring { position: absolute; left: 1150px; top: 170px; width: 680px; height: 680px; }
+.rest-ring .rr-t line { stroke: rgba(154,140,255,.45); stroke-width: 6; stroke-linecap: round; }
+.rest-ring .rr-bg { fill: none; stroke: rgba(154,140,255,.12); stroke-width: 22; }
+.rest-ring .rr-p { fill: none; stroke: var(--violet); stroke-width: 22; stroke-linecap: round;
+  transition: stroke-dashoffset 1.2s var(--ease); }
+.rest-ring .rr-moon { fill: var(--violet); }
+.rest-ring text { font: 700 40px var(--mono); fill: var(--ink2); }
+
+/* ---------------- 家長日簡報（原樣） ---------------- */
+.pdf img { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; display: block; }
+.pdf canvas.rcv { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; z-index: 2; }
+.rhead { position: absolute; left: 0; top: -2px; width: 1920px; height: 4px; z-index: 3; background: var(--lime);
+  box-shadow: 0 0 22px 4px rgba(198,244,50,.65); }
+.rhead b { position: absolute; right: 24px; top: 12px; padding: 8px 12px; background: var(--lime); color: #0a0d11;
+  font: 700 22px/1 var(--mono); white-space: nowrap; }
+.scanl { left: 0; top: -3px; width: 1920px; height: 6px; background: var(--lime); box-shadow: 0 0 30px 8px rgba(198,244,50,.6); }
+.scanl::before { content: ""; position: absolute; left: 0; right: 0; bottom: 6px; height: 180px;
+  background: linear-gradient(to bottom, transparent, rgba(198,244,50,.16)); }
+
+/* ---------------- 教授引言卡 ---------------- */
+.card .cd-main { position: absolute; left: 120px; top: 116px; width: 1180px; }
+.cd-kick { display: flex; align-items: center; gap: 26px; font: 600 32px/1 var(--mono); color: var(--dim); }
+.cd-idx b { color: var(--fc); } .cd-idx i { color: var(--mute); }
+.cd-field { padding: 10px 20px; border: 2px solid var(--fc); border-radius: 999px; color: var(--fc); font: 700 28px/1 var(--sans); }
+.cd-name { display: flex; align-items: baseline; gap: 30px; margin-top: 38px; }
+.cd-name .nm { font: 900 196px/1 var(--sans); letter-spacing: .03em; white-space: nowrap; }
+.cd-name small { font: 700 64px/1 var(--sans); color: var(--ink2); }
+.cd-role { margin-top: 26px; min-height: 48px; font: 500 34px/1.4 var(--sans); color: var(--dim); }
+.cd-meta { margin-top: 44px; border-top: 2px solid var(--line); }
+.cd-meta > div { display: grid; grid-template-columns: 150px 1fr; align-items: center; padding: 26px 0; border-bottom: 2px solid var(--line); }
+.cd-meta dt { font: 500 28px/1 var(--mono); color: var(--dim); }
+.cd-lab b { font: 800 52px/1.2 var(--sans); }
+.cd-lab code { margin-left: 22px; font: 700 40px/1 var(--mono); color: var(--fc); white-space: nowrap; }
+.chips { display: flex; flex-wrap: wrap; gap: 12px; }
+.chips span { padding: 12px 18px; border: 1px solid var(--line2); border-radius: 8px; background: var(--panel); font: 500 32px/1 var(--sans); color: var(--ink2); }
+.cd-fit dd { font: 700 42px/1.35 var(--sans); }
+.cd-fit em { margin-right: 18px; font-family: var(--mono); color: var(--fc); }
+.cd-list { position: absolute; left: 1420px; top: 116px; width: 380px; }
+.cd-lh { display: flex; justify-content: space-between; padding: 0 0 18px; margin-bottom: 8px; border-bottom: 2px solid var(--line);
+  font: 500 24px/1 var(--mono); color: var(--dim); }
+.cd-list li { position: relative; z-index: 0; display: flex; align-items: center; gap: 18px; height: 54px; padding: 0 18px;
+  font: 500 28px/1 var(--sans); color: var(--mute); }
+.cd-list li b { font: 600 22px/1 var(--mono); }
+.cd-list li::before { content: ""; width: 9px; height: 9px; border-radius: 2px; background: var(--fc); opacity: .5; }
+.cd-list li.done { color: var(--dim); }
+.cd-list li.cur { color: #0a0d11; font-weight: 800; }
+.cd-list li.cur::before { background: #0a0d11; opacity: 1; }
+.cd-cur { position: absolute; inset: 0; z-index: -1; border-radius: 6px; background: var(--fc); }
+.card .cd-list li.cur .cd-cur { box-shadow: 0 0 28px color-mix(in srgb, var(--fc) 45%, transparent); animation: glow 3s ease-in-out infinite; }
+@keyframes glow { 50% { opacity: .88; } }
+.cd-list .ck { margin-left: auto; width: 26px; height: 26px; stroke: var(--lime); fill: none; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---------------- 14 間實驗室 ---------------- */
+#s-labs .lb-k { position: absolute; left: 120px; top: 100px; }
+#s-labs .lb-title { position: absolute; left: 114px; top: 148px; font: 900 104px/1 var(--sans); }
+#s-labs .lb-sub { position: absolute; left: 120px; top: 276px; font: 500 36px/1 var(--sans); color: var(--ink2); }
+#s-labs .lb-grid { position: absolute; left: 120px; top: 372px; width: 1680px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0 40px; }
+.lb-col h3 { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 18px; border-bottom: 4px solid var(--fc);
+  font: 900 44px/1 var(--sans); color: var(--fc); }
+.lb-col h3 em { font: 600 26px/1 var(--mono); color: var(--dim); }
+.lb-col li { padding: 12px 0 14px; border-bottom: 1px solid var(--line); }
+.lb-col li p { display: flex; gap: 16px; align-items: baseline; font: 500 26px/1.3 var(--sans); color: var(--dim); }
+.lb-col li code { font: 700 26px/1.3 var(--mono); color: var(--fc); }
+.lb-col li b { display: block; margin-top: 4px; font: 700 34px/1.25 var(--sans); white-space: nowrap; }
+
+/* ---------------- 分組名單 ---------------- */
+#s-teams .tm-k { position: absolute; left: 120px; top: 92px; }
+#s-teams .tm-title { position: absolute; left: 114px; top: 140px; font: 900 104px/1 var(--sans); }
+#s-teams .tm-grid { position: absolute; left: 120px; top: 300px; width: 1680px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 0 36px; }
+.tm-no { font: 600 24px/1 var(--mono); color: var(--tc); }
+.tm-col h3 { margin-top: 12px; padding-bottom: 18px; border-bottom: 4px solid var(--tc); font: 900 60px/1 var(--sans); }
+.tm-col li { height: 82px; display: flex; align-items: center; border-bottom: 1px solid var(--line); font: 500 48px/1 var(--sans); }
+.tm-lead { display: flex; align-items: center; gap: 18px; height: 98px; }
+.tm-lead span { padding: 8px 14px; border-radius: 6px; background: var(--tc); color: #0a0d11; font: 800 28px/1 var(--sans); }
+.tm-lead b { font: 800 48px/1 var(--sans); color: var(--tc); }
+#s-teams .tm-note { position: absolute; left: 120px; top: 942px; display: flex; align-items: center; gap: 16px; font: 500 32px/1 var(--sans); color: var(--ink2); }
+#s-teams .tm-note svg { width: 38px; height: 38px; color: var(--amber); }
+
+/* ---------------- 團康時段 ---------------- */
+#s-sched .sc-k { position: absolute; left: 120px; top: 100px; }
+#s-sched .sc-title { position: absolute; left: 114px; top: 148px; font: 900 104px/1 var(--sans); }
+#s-sched .sc-list { position: absolute; left: 120px; top: 318px; width: 1680px; border-top: 2px solid var(--line); }
+.sc-list li { position: relative; display: grid; grid-template-columns: 360px 520px 1fr; align-items: center; height: 106px; border-bottom: 2px solid var(--line); }
+.sc-list time { font: 600 40px/1 var(--mono); color: var(--ink2); }
+.sc-list b { font: 800 50px/1 var(--sans); }
+.sc-list .tr { position: relative; height: 34px; }
+.sc-list .tr::before { content: ""; position: absolute; left: 0; right: 0; top: 16px; height: 2px; background: var(--line2); }
+.sc-list .bar { position: absolute; top: 0; height: 34px; border-radius: 4px; background: var(--pink); }
+.sc-list li.run .bar { background: repeating-linear-gradient(135deg, var(--pink) 0 5px, transparent 5px 10px); box-shadow: inset 0 0 0 2px var(--pink); }
+.sc-list li.move .bar { background: repeating-linear-gradient(135deg, #8592a1 0 5px, transparent 5px 10px); box-shadow: inset 0 0 0 2px #8592a1; }
+.sc-list li.run b, .sc-list li.move b { color: var(--ink2); font-weight: 700; }
+.sc-list li:nth-child(1) .bar { left: 0; width: 197px; }
+.sc-list li:nth-child(2) .bar { left: 197px; width: 49px; }
+.sc-list li:nth-child(3) .bar { left: 246px; width: 197px; }
+.sc-list li:nth-child(4) .bar { left: 443px; width: 49px; }
+.sc-list li:nth-child(5) .bar { left: 492px; width: 98px; }
+.sc-list li:nth-child(6) .bar { left: 590px; width: 50px; }
+.sc-list .dur { position: absolute; right: 0; font: 500 26px/1 var(--mono); color: var(--dim); }
+
+/* ---------------- 頒獎 ---------------- */
+.award .aw-digit { position: absolute; left: 80px; top: 112px; width: 580px; height: 820px; overflow: hidden; }
+.award .aw-digit span { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;
+  font: 800 780px/1 var(--mono); color: var(--amber); }
+.award .aw-digit svg { width: 470px; height: 470px; fill: var(--amber); }
+.award .aw-body { position: absolute; left: 740px; top: 172px; width: 1080px; }
+.aw-k { color: var(--amber) !important; }
+.aw-title { margin-top: 20px; font: 900 220px/1 var(--sans); letter-spacing: .02em; white-space: nowrap; }
+.aw-team { display: flex; align-items: center; gap: 10px; margin-top: 70px; font: 900 112px/1 var(--sans); white-space: nowrap; }
+.aw-slot { display: inline-flex; align-items: center; justify-content: center; min-width: 1.15em; height: 1.2em;
+  border: 4px dashed var(--amber); border-radius: 14px; color: var(--amber); font-family: var(--mono); }
+.award.is-set .aw-slot { border-color: transparent; color: var(--tc); font-family: var(--sans); min-width: 0; }
+.aw-mem { margin-top: 34px; min-height: 52px; font: 500 38px/1.4 var(--sans); color: var(--ink2); visibility: hidden; }
+.aw-mem i { color: var(--tc); font-weight: 800; }
+.award.is-set .aw-mem { visibility: inherit; }  /* 不可用 visible：會穿透隱藏的頁面 */
+.aw-pick { position: absolute; right: 120px; bottom: 112px; display: flex; align-items: center; gap: 12px; }
+.aw-pick .k { font-size: 22px; color: var(--mute); margin-right: 6px; }
+.aw-pick button { cursor: pointer; padding: 10px 16px; border: 1px solid var(--line2); border-radius: 8px; background: transparent;
+  font: 600 24px/1 var(--sans); color: var(--dim); }
+.aw-pick button:hover { border-color: var(--amber); color: var(--ink); }
+.aw-pick button[aria-pressed="true"] { background: var(--tc); border-color: var(--tc); color: #0a0d11; }
+.burst i { visibility: hidden; position: absolute; left: 0; top: 0; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 2px; }
+
+/* ---------------- 獎品 ---------------- */
+.prize .pz-k { position: absolute; left: 120px; top: 150px; color: var(--amber); }
+.prize .pz-team { position: absolute; left: 120px; top: 236px; font: 800 56px/1 var(--sans); visibility: hidden; }
+.prize.is-set .pz-team { visibility: inherit; }
+.prize .pz-team b { color: var(--tc); }
+.prize .pz-title { position: absolute; left: 96px; top: 330px; font: 900 360px/1 var(--sans); color: var(--amber); letter-spacing: .02em; white-space: nowrap; }
+#s-mat .pz-title { font-size: 220px; top: 400px; }
+.prize .pz-note { position: absolute; left: 120px; top: 830px; display: flex; align-items: center; gap: 18px; font: 600 40px/1 var(--sans); color: var(--ink2); }
+.prize .pz-note svg { width: 48px; height: 48px; color: var(--amber); }
+.prize .pz-art { position: absolute; }
+#s-chicken .pz-art { left: 1060px; top: 170px; width: 760px; height: 680px; }
+#s-mat .pz-art { left: 1030px; top: 240px; width: 790px; height: 540px; }
+.steam path { fill: none; stroke: rgba(255,255,255,.35); stroke-width: 7; stroke-linecap: round; animation: steam 4s ease-in-out infinite; }
+.steam path:nth-child(2) { animation-delay: -1.3s; } .steam path:nth-child(3) { animation-delay: -2.6s; }
+@keyframes steam { 50% { transform: translateY(-5px); opacity: .87; } }
+
+/* ---------------- 大合照 ---------------- */
+#s-photo .vf { position: absolute; left: 0; top: 0; width: 1920px; height: 1024px; }
+#s-photo .vf path { fill: none; stroke: var(--ink); stroke-width: 6; stroke-linecap: square; }
+#s-photo .vf .vf-focus path { stroke: var(--lime); stroke-width: 5; }
+#s-photo .vf .vf-focus text { font: 600 24px var(--mono); fill: var(--lime); }
+#s-photo .rec { position: absolute; left: 150px; top: 126px; display: flex; align-items: center; gap: 14px; font: 700 30px/1 var(--mono); }
+#s-photo .rec i { width: 20px; height: 20px; border-radius: 50%; background: var(--red); box-shadow: 0 0 16px var(--red); animation: breathe 1.8s ease-in-out infinite; }
+#s-photo .ph-k { position: absolute; right: 150px; top: 126px; }
+#s-photo .ph-title { position: absolute; left: 0; right: 0; top: 330px; text-align: center; font: 900 300px/1 var(--sans); letter-spacing: .06em; }
+#s-photo .ph-sub { position: absolute; left: 0; right: 0; top: 700px; text-align: center; font: 700 56px/1 var(--sans); color: var(--ink2); }
+#s-photo .ph-meta { position: absolute; left: 150px; bottom: 196px; font: 500 26px/1 var(--mono); color: var(--dim); }
+
+/* ---------------- 回饋表單 ---------------- */
+#s-qr .qr-plate { position: absolute; left: 150px; top: 116px; width: 792px; height: 792px; padding: 68px; border-radius: 26px; background: #fff; }
+#s-qr .qr-svg { display: block; width: 656px; height: 656px; }
+#s-qr .qr-svg path { fill: #0a0d11; }
+#s-qr .qr-k { position: absolute; left: 1060px; top: 150px; }
+#s-qr .qr-title { position: absolute; left: 1052px; top: 200px; font: 900 150px/1 var(--sans); }
+#s-qr .qr-name { position: absolute; left: 1060px; top: 386px; font: 700 40px/1.3 var(--sans); color: var(--ink2); }
+#s-qr .qr-step { position: absolute; left: 1060px; top: 520px; width: 740px; }
+#s-qr .qr-step li { display: grid; grid-template-columns: 64px 1fr; align-items: center; height: 92px; border-top: 2px solid var(--line); font: 700 44px/1 var(--sans); }
+#s-qr .qr-step li:last-child { border-bottom: 2px solid var(--line); }
+#s-qr .qr-step li i { font: 700 30px/1 var(--mono); color: var(--lime); }
+#s-qr .qr-url { position: absolute; left: 1060px; top: 850px; font: 500 30px/1 var(--mono); color: var(--dim); }
+.ubx { left: 660px; top: 440px; width: 600px; }
+.ubx p { font: 600 34px/1 var(--mono); color: var(--amber); white-space: pre; }
+.ubx div { margin-top: 26px; height: 14px; border: 2px solid var(--amber); border-radius: 4px; padding: 2px; }
+.ubx i { display: block; height: 100%; background: var(--amber); transform-origin: 0 50%; }
+
+/* ---------------- 結尾 ---------------- */
+#s-end .e-k { position: absolute; left: 120px; top: 150px; color: var(--lime); }
+#s-end .e-title { position: absolute; left: 110px; top: 210px; font: 900 200px/1 var(--sans); letter-spacing: .02em; }
+#s-end .e-list { position: absolute; left: 120px; top: 490px; width: 940px; }
+#s-end .e-list li { display: flex; align-items: center; gap: 22px; height: 92px; border-top: 2px solid var(--line); font: 700 42px/1 var(--sans); }
+#s-end .e-list li:last-child { border-bottom: 2px solid var(--line); }
+#s-end .e-list svg { width: 36px; height: 36px; stroke: var(--lime); fill: none; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+#s-end .e-exit { position: absolute; left: 120px; top: 840px; display: flex; align-items: center; gap: 18px; font: 700 44px/1 var(--sans); color: var(--amber); }
+#s-end .e-exit svg { width: 52px; height: 52px; }
+#s-end .code li { color: var(--dim); }
+#s-end .code li em { color: var(--mute); }
+#s-end .code .ck { stroke: var(--lime); fill: none; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+
+/* 開機／結束紀錄（轉場用的浮層） */
+.blog { left: 120px; top: 230px; width: 1680px; font: 500 34px/1 var(--mono); color: var(--ink2); }
+.blog p { display: grid; grid-template-columns: 200px 420px 260px 1fr; align-items: center; height: 62px; white-space: pre; }
+.blog p.cmd { display: block; color: var(--ink); margin-bottom: 18px; }
+.blog .t { color: var(--mute); } .blog .v { color: var(--amber); } .blog .ok { color: var(--lime); }
+.blog p.last { display: block; margin-top: 18px; color: var(--lime); }
+.bline { left: 0; top: 539px; width: 1920px; height: 2px; background: var(--ink); box-shadow: 0 0 30px 6px rgba(255,255,255,.7); }
+.zov { left: 0; top: 0; }
+.flash { left: 0; top: 0; width: 1920px; height: 1080px; background: #fff; }
+.iris { left: 0; top: 0; width: 1920px; height: 1080px; }
+.iris svg { display: block; width: 100%; height: 100%; }
+.qcv { left: 0; top: 0; width: 1920px; height: 1080px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .slide, .slide *, .stage::after, .sb * { animation: none !important; }
+  .sb, .sb *, .rest-ring * { transition: none !important; }
+}
+</style>
+</head>
+<body>
+
+<div class="stage" id="stage">
+
+<!-- ======================= 簽到 17:35–18:00 ======================= -->
+<section class="slide" id="s-wait" data-sec="pre" data-st="wait" data-item="等待開始" data-at="0">
+  <p class="w-top k"><i class="dot"></i><span>系員大會.py</span><span class="mute">— 等待執行</span></p>
+  <p class="w-lbl">活動開始時間</p>
+  <p class="w-time">18:00</p>
+  <h1 class="w-title">資工系期初系員大會</h1>
+  <p class="w-meta">國立彰化師範大學 資訊工程學系 · 115 學年度</p>
+  <div class="w-note">
+    <svg class="ic" viewBox="0 0 64 64" aria-hidden="true"><path d="M14 50l6-1 28-28-5-5-28 28z"/><path d="M38 16l10 10"/><path d="M12 56h40"/></svg>
+    <p>到場請先找工作人員<b>簽到</b></p>
+  </div>
+  <div class="code w-code">
+    <p class="code-bar"><i></i><i></i><i></i><span>系員大會.py</span></p>
+    <ol>
+      <li><span><b class="kw">def</b> <b class="fn">系員大會</b>():</span><em></em></li>
+      <li class="cur"><span>    <b class="fn">簽到</b>()</span><em># 17:35</em></li>
+      <li><span>    <b class="fn">專題介紹</b>(<b class="pa">教授</b>=<b class="nu">14</b>)</span><em># 18:00</em></li>
+      <li><span>    <b class="fn">小隊破冰</b>(<b class="pa">小隊</b>=<b class="nu">4</b>)</span><em># 19:00</em></li>
+      <li><span>    <b class="fn">休息</b>(<b class="pa">分鐘</b>=<b class="nu">10</b>)</span><em># 19:20</em></li>
+      <li><span>    <b class="fn">團康活動</b>(<b class="pa">時段</b>=<b class="nu">3</b>)</span><em># 19:30</em></li>
+      <li><span>    <b class="fn">頒獎</b>()</span><em># 20:35</em></li>
+      <li><span>    <b class="fn">大合照</b>()</span><em></em></li>
+      <li><span>    <b class="fn">回饋表單</b>()</span><em></em></li>
+      <li><span>    <b class="kw">return</b> <b class="nu">0</b></span><em></em></li>
+    </ol>
+  </div>
+</section>
+
+<!-- ======================= 開場 18:00 ======================= -->
+<section class="slide" id="s-hello" data-transition="boot" data-sec="open" data-item="歡迎" data-at="0">
+  <p class="h-cmd k"><b>$</b> python3 系員大會.py</p>
+  <p class="h-l1">歡迎來到</p>
+  <h1 class="h-l2">資工系期初系員大會</h1>
+  <i class="caret" aria-hidden="true"></i>
+  <p class="h-sub">互相認識，也提前看見大學生活。</p>
+  <p class="h-meta">國立彰化師範大學 資訊工程學系 · 115 學年度</p>
+  <p class="h-pid k">180 min · 14 位教授 · 4 個小隊</p>
+</section>
+
+<section class="slide" id="s-rules" data-transition="clear" data-sec="open" data-item="場地須知" data-at="1">
+  <p class="r-k k"># 開始之前</p>
+  <h2 class="r-title">場地須知</h2>
+  <div class="r-list">
+    <div class="r-row r-a">
+      <i class="r-bar"></i>
+      <svg class="r-ic ic" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="27"/><path d="M13 13l38 38"/><path d="M23 17v11a4 4 0 0 0 8 0V17M27 17v30"/><path d="M42 17c-5 3-5 13 0 16v14"/></svg>
+      <div><p class="r-tag">warning 01</p><p class="r-txt">食物一律在<b>場地外面</b>食用</p></div>
+    </div>
+    <div class="r-row r-b">
+      <i class="r-bar"></i>
+      <svg class="r-ic ic" viewBox="0 0 64 64" aria-hidden="true"><path d="M8 54h12V44h12V34h12V24h12"/><path d="M8 54h48"/><circle cx="20" cy="15" r="5"/><path d="M20 22v12M14 28h12"/></svg>
+      <div><p class="r-tag">info 02</p><p class="r-txt">洗手間在<b>樓梯旁邊</b></p></div>
+    </div>
+  </div>
+</section>
+
+<section class="slide" id="s-agenda" data-transition="clear" data-sec="open" data-item="今晚流程" data-at="2">
+  <p class="a-k k">profile(系員大會)  # 180 min</p>
+  <h2 class="a-title">今晚流程</h2>
+  <div class="fl">
+    <p class="fl-root"><b>系員大會()</b><span>18:00 – 21:00 · 180 min</span></p>
+    <p class="fl-f talk" style="left:0;width:560px"><b>專題介紹</b><span>18:00–19:00 · 60m</span></p>
+    <p class="fl-f ice" style="left:560px;width:187px"><b>小隊破冰</b><span>19:00–19:20</span></p>
+    <p class="fl-f rest" style="left:747px;width:93px"><b>休息</b><span>10m</span></p>
+    <p class="fl-f games" style="left:840px;width:560px"><b>團康活動</b><span>19:30–20:30 · 60m</span></p>
+    <p class="fl-f move" style="left:1400px;width:47px"></p>
+    <p class="fl-f award" style="left:1447px;width:233px"><b>系員交流<br>&amp; 頒獎</b><span>20:35–21:00</span></p>
+    <!--@@FLAME@@-->
+    <i class="fl-s g" style="left:840px;width:187px">時段 1</i>
+    <i class="fl-s run" style="left:1027px;width:46px"></i>
+    <i class="fl-s g" style="left:1073px;width:187px">時段 2</i>
+    <i class="fl-s run" style="left:1260px;width:47px"></i>
+    <i class="fl-s g" style="left:1307px;width:93px">時段 3</i>
+    <i class="fl-s aw" style="left:1447px;width:233px">頒獎 · 合照 · 回饋</i>
+    <div class="fl-ax">
+      <i style="left:0"></i><i style="left:280px"></i><i style="left:560px"></i><i style="left:840px"></i><i style="left:1120px"></i><i style="left:1400px"></i><i style="left:1678px"></i>
+      <span style="left:0">18:00</span><span style="left:280px">18:30</span><span style="left:560px">19:00</span><span style="left:840px">19:30</span><span style="left:1120px">20:00</span><span style="left:1400px">20:30<small>回 EB111</small></span><span style="left:1680px">21:00</span>
+    </div>
+  </div>
+  <div class="a-lg">
+    <span class="f-sys"><i></i>系統整合</span><span class="f-net"><i></i>網路通訊</span><span class="f-sw"><i></i>軟體發展</span><span><i class="hatch"></i>跑關／移動</span>
+  </div>
+</section>
+
+<!-- ======================= 專題介紹 18:00–19:00 ======================= -->
+<section class="slide sec sec-talk" id="s-talk" data-transition="zoom" data-sec="talk" data-item="" data-at="3">
+  <p class="sec-time">18:00 — 19:00</p>
+  <p class="sec-no" aria-hidden="true">01</p>
+  <h2 class="sec-title">專題介紹</h2>
+  <p class="sec-call">專題介紹(教授=14)  <em># 60 min</em></p>
+  <p class="sec-sub">14 位教授 · 14 間實驗室</p>
+</section>
+
+<section class="slide pdf" id="s-p01" data-transition="render" data-bar="off" data-sec="talk" data-item="師資介紹" data-at="3">
+  <img src="@@PAGE01@@" alt="家長日簡報第 31 頁：師資介紹" decoding="async"></section>
+<!--@@PROFS@@-->
+
+<section class="slide" id="s-labs" data-transition="dim" data-sec="talk" data-item="14 間實驗室" data-at="58">
+  <p class="lb-k k">實驗室.groupby("領域")</p>
+  <h2 class="lb-title">謝謝 14 位老師</h2>
+  <p class="lb-sub">從晶片、網路、嵌入式，到資料、影像與 AI，資工的各個方向都在這裡</p>
+  <div class="lb-grid"><!--@@LABS@@--></div>
+</section>
+
+<!-- ======================= 小隊破冰 19:00–19:20 ======================= -->
+<section class="slide sec sec-ice" id="s-ice" data-transition="zoom" data-sec="ice" data-item="" data-at="60">
+  <p class="sec-time">19:00 — 19:20</p>
+  <p class="sec-no" aria-hidden="true">02</p>
+  <h2 class="sec-title">小隊破冰</h2>
+  <p class="sec-call">小隊破冰(小隊=4)  <em># 20 min</em></p>
+  <p class="sec-sub">4 個小隊 · 每隊 5 人 + 1 位隊輔</p>
+</section>
+
+<section class="slide" id="s-teams" data-transition="unzoom" data-sec="ice" data-item="分組名單" data-at="62">
+  <p class="tm-k k">成員.groupby("小隊")</p>
+  <h2 class="tm-title">分組名單</h2>
+  <div class="tm-grid"><!--@@TEAMS@@--></div>
+  <p class="tm-note"><svg class="ic" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 8L4 56h56z"/><path d="M32 26v14M32 47v1"/></svg>破冰時請注意彼此的身體界線，不要讓別人不舒服</p>
+</section>
+
+<!-- ======================= 休息 19:20–19:30 ======================= -->
+<section class="slide sec sec-rest" id="s-rest" data-transition="zoom" data-sec="rest" data-st="sleep" data-item="" data-at="80">
+  <p class="sec-time">19:20 — 19:30</p>
+  <h2 class="sec-title">休息時間</h2>
+  <p class="sec-call">休息(分鐘=10)</p>
+  <p class="rest-back"><b>19:30</b><span>回到現場</span></p>
+  <p class="rest-tip">喝個水 · 上個廁所</p>
+  <svg class="rest-ring" viewBox="0 0 680 680" aria-hidden="true">
+    <g class="rr-t"><line x1="340" y1="18" x2="340" y2="48"/><line x1="529" y1="79.5" x2="511.4" y2="103.8"/><line x1="646.2" y1="240.5" x2="617.7" y2="249.7"/><line x1="646.2" y1="439.5" x2="617.7" y2="430.3"/><line x1="529" y1="600.5" x2="511.4" y2="576.2"/><line x1="340" y1="662" x2="340" y2="632"/><line x1="151" y1="600.5" x2="168.6" y2="576.2"/><line x1="33.8" y1="439.5" x2="62.3" y2="430.3"/><line x1="33.8" y1="240.5" x2="62.3" y2="249.7"/><line x1="151" y1="79.5" x2="168.6" y2="103.8"/></g>
+    <circle class="rr-bg" cx="340" cy="340" r="252"/>
+    <circle class="rr-p" cx="340" cy="340" r="252" transform="rotate(-90 340 340)" stroke-dasharray="1583.4" stroke-dashoffset="0"/>
+    <g class="rr-m"><path class="rr-moon" d="M372 262a86 86 0 1 0 56 124a70 70 0 1 1 -56 -124z"/></g>
+    <text x="340" y="470" text-anchor="middle">10 min</text>
+  </svg>
+</section>
+
+<!-- ======================= 團康活動 19:30–20:30 ======================= -->
+<section class="slide sec sec-games" id="s-games" data-transition="zoom" data-sec="games" data-item="" data-at="90">
+  <p class="sec-time">19:30 — 20:30</p>
+  <p class="sec-no" aria-hidden="true">04</p>
+  <h2 class="sec-title">團康活動</h2>
+  <p class="sec-call">團康活動(時段=3)  <em># 60 min</em></p>
+  <p class="sec-sub">3 個時段 · 2 次跑關</p>
+</section>
+
+<section class="slide" id="s-sched" data-transition="unzoom" data-sec="games" data-item="時段表" data-at="91">
+  <p class="sc-k k">團康活動(時段=3)</p>
+  <h2 class="sc-title">時段表</h2>
+  <ol class="sc-list">
+    <li class="g"><time>19:30 – 19:50</time><b>團康活動 · 時段 1</b><span class="tr"><i class="bar"></i></span><em class="dur">20 min</em></li>
+    <li class="run"><time>19:50 – 19:55</time><b>跑關 1</b><span class="tr"><i class="bar"></i></span><em class="dur">5 min</em></li>
+    <li class="g"><time>19:55 – 20:15</time><b>團康活動 · 時段 2</b><span class="tr"><i class="bar"></i></span><em class="dur">20 min</em></li>
+    <li class="run"><time>20:15 – 20:20</time><b>跑關 2</b><span class="tr"><i class="bar"></i></span><em class="dur">5 min</em></li>
+    <li class="g"><time>20:20 – 20:30</time><b>團康活動 · 時段 3</b><span class="tr"><i class="bar"></i></span><em class="dur">10 min</em></li>
+    <li class="move"><time>20:30 – 20:35</time><b>回 EB111</b><span class="tr"><i class="bar"></i></span><em class="dur">5 min</em></li>
+  </ol>
+</section>
+
+<!-- ======================= 系員交流 & 頒獎 20:35–21:00 ======================= -->
+<section class="slide sec sec-award" id="s-award" data-transition="zoom" data-sec="award" data-item="" data-at="155">
+  <p class="sec-time">20:35 — 21:00   @ EB111</p>
+  <p class="sec-no" aria-hidden="true">05</p>
+  <h2 class="sec-title">系員交流 &amp; 頒獎</h2>
+  <p class="sec-call">頒獎()  <em># 25 min</em></p>
+  <p class="sec-sub">頒獎 → 大合照 → 回饋表單</p>
+</section>
+
+<section class="slide award aw-slide" id="s-r3" data-transition="unzoom" data-sec="award" data-item="第三名" data-rank="3" data-at="160">
+  <div class="aw-digit" aria-hidden="true"><span>3</span></div>
+  <div class="aw-body">
+    <p class="aw-k k">rank = 3</p>
+    <h2 class="aw-title">第三名</h2>
+    <p class="aw-team"><span>第</span><b class="aw-slot">?</b><span>小隊</span></p>
+    <p class="aw-mem"></p>
+  </div>
+  <div class="aw-pick" data-no-nav><span class="k">揭曉</span><button data-team="1">一小</button><button data-team="2">二小</button><button data-team="3">三小</button><button data-team="4">四小</button></div>
+</section>
+
+<section class="slide award aw-slide" id="s-r2" data-transition="odometer" data-sec="award" data-item="第二名" data-rank="2" data-at="163">
+  <div class="aw-digit" aria-hidden="true"><span>2</span></div>
+  <div class="aw-body">
+    <p class="aw-k k">rank = 2</p>
+    <h2 class="aw-title">第二名</h2>
+    <p class="aw-team"><span>第</span><b class="aw-slot">?</b><span>小隊</span></p>
+    <p class="aw-mem"></p>
+  </div>
+  <div class="aw-pick" data-no-nav><span class="k">揭曉</span><button data-team="1">一小</button><button data-team="2">二小</button><button data-team="3">三小</button><button data-team="4">四小</button></div>
+</section>
+
+<section class="slide award aw-slide" id="s-r1" data-transition="odometer" data-sec="award" data-item="第一名" data-rank="1" data-at="166">
+  <div class="aw-digit" aria-hidden="true"><span>1</span></div>
+  <div class="aw-body">
+    <p class="aw-k k">rank = 1</p>
+    <h2 class="aw-title">第一名</h2>
+    <p class="aw-team"><span>第</span><b class="aw-slot">?</b><span>小隊</span></p>
+    <p class="aw-mem"></p>
+  </div>
+  <div class="aw-pick" data-no-nav><span class="k">揭曉</span><button data-team="1">一小</button><button data-team="2">二小</button><button data-team="3">三小</button><button data-team="4">四小</button></div>
+</section>
+
+<section class="slide prize" id="s-chicken" data-transition="unbox" data-sec="award" data-item="第一名獎品" data-for="1" data-load="開獎(第一名) …" data-at="168">
+  <p class="pz-k k">開獎(第一名)</p>
+  <p class="pz-team"><b class="pz-tn"></b> 獲得</p>
+  <h2 class="pz-title">雞排</h2>
+  <p class="pz-note"><svg class="ic" viewBox="0 0 64 64" aria-hidden="true"><path d="M26 8v48M26 56h28V8H26"/><path d="M8 32h28M28 24l8 8-8 8"/></svg>拿到食物請到場地外再享用</p>
+  <svg class="pz-art" viewBox="0 0 760 680" aria-hidden="true">
+    <defs>
+      <radialGradient id="cg" cx="42%" cy="38%" r="70%"><stop offset="0" stop-color="#f9d27a"/><stop offset=".6" stop-color="#e9a440"/><stop offset="1" stop-color="#bb701d"/></radialGradient>
+      <clipPath id="cc"><path d="@@CUTLET@@"/></clipPath>
+    </defs>
+    <g class="steam"><path d="M300 92c-18-24 18-36 0-62"/><path d="M386 80c-18-24 18-36 0-62"/><path d="M472 92c-18-24 18-36 0-62"/></g>
+    <path d="@@CUTLET@@" fill="url(#cg)" stroke="#9c5918" stroke-width="9" stroke-linejoin="round"/>
+    <g clip-path="url(#cc)"><!--@@CRUMBS@@--></g>
+    <path d="M118 448Q380 418 642 444L668 662Q380 690 92 664Z" fill="#efe5d2"/>
+    <path d="M118 448Q380 418 642 444" fill="none" stroke="#d9c9ab" stroke-width="6"/>
+    <path d="M200 470l-14 180M560 466l14 182" stroke="#ddd0b6" stroke-width="5" fill="none"/>
+    <rect x="300" y="520" width="160" height="70" rx="10" fill="none" stroke="#ff5c9d" stroke-width="6"/>
+    <path d="M330 555h100" stroke="#ff5c9d" stroke-width="6" stroke-linecap="round"/>
+  </svg>
+</section>
+
+<section class="slide award aw-slide" id="s-sp" data-transition="odometer" data-sec="award" data-item="特殊獎" data-rank="sp" data-at="171">
+  <div class="aw-digit" aria-hidden="true"><span><svg viewBox="0 0 100 100"><path d="M50 4l13.5 30.5 33 3.2-25 22 7.4 32.6L50 75.3 21.1 92.3l7.4-32.6-25-22 33-3.2z"/></svg></span></div>
+  <div class="aw-body">
+    <p class="aw-k k">rank = 特殊獎</p>
+    <h2 class="aw-title">特殊獎</h2>
+    <p class="aw-team"><span>第</span><b class="aw-slot">?</b><span>小隊</span></p>
+    <p class="aw-mem"></p>
+  </div>
+  <div class="aw-pick" data-no-nav><span class="k">揭曉</span><button data-team="1">一小</button><button data-team="2">二小</button><button data-team="3">三小</button><button data-team="4">四小</button></div>
+</section>
+
+<section class="slide prize" id="s-mat" data-transition="unbox" data-sec="award" data-item="特殊獎獎品" data-for="sp" data-load="開獎(特殊獎) …" data-at="172">
+  <p class="pz-k k">開獎(特殊獎)</p>
+  <p class="pz-team"><b class="pz-tn"></b> 獲得</p>
+  <h2 class="pz-title">健康步道</h2>
+  <svg class="pz-art" viewBox="0 0 820 560" aria-hidden="true">
+    <rect x="20" y="30" width="780" height="420" rx="46" fill="#1e3326" stroke="#3f6b4c" stroke-width="8"/>
+    <rect x="44" y="54" width="732" height="372" rx="30" fill="none" stroke="#2f5039" stroke-width="4" stroke-dasharray="14 12"/>
+    <g class="pbs"><!--@@PEBBLES@@--></g>
+    <g class="feet">
+      <g transform="translate(250 300) rotate(-12)"><path d="M0 -70c34 0 46 40 40 80c-6 44-22 66-42 66s-34-20-36-60c-2-46 6-86 38-86z" fill="none" stroke="#c6f432" stroke-width="7"/><circle cx="-24" cy="-96" r="11" fill="#c6f432"/><circle cx="0" cy="-104" r="10" fill="#c6f432"/><circle cx="20" cy="-100" r="9" fill="#c6f432"/><circle cx="36" cy="-90" r="8" fill="#c6f432"/><circle cx="48" cy="-76" r="7" fill="#c6f432"/></g>
+      <g transform="translate(520 210) rotate(14) scale(-1 1)"><path d="M0 -70c34 0 46 40 40 80c-6 44-22 66-42 66s-34-20-36-60c-2-46 6-86 38-86z" fill="none" stroke="#c6f432" stroke-width="7"/><circle cx="-24" cy="-96" r="11" fill="#c6f432"/><circle cx="0" cy="-104" r="10" fill="#c6f432"/><circle cx="20" cy="-100" r="9" fill="#c6f432"/><circle cx="36" cy="-90" r="8" fill="#c6f432"/><circle cx="48" cy="-76" r="7" fill="#c6f432"/></g>
+    </g>
+  </svg>
+</section>
+
+<section class="slide" id="s-photo" data-transition="shutter" data-sec="award" data-item="大合照" data-at="174">
+  <svg class="vf" viewBox="0 0 1920 1024" aria-hidden="true">
+    <g class="vf-c"><path d="M90 230V90h140"/><path d="M1690 90h140v140"/><path d="M1830 794v140h-140"/><path d="M230 934H90V794"/></g>
+    <g class="vf-focus"><path d="M440 350v-50h50M1430 300h50v50M1480 612v50h-50M490 662h-50v-50"/><text x="440" y="284">FACE × 1 · 對焦完成</text></g>
+  </svg>
+  <p class="rec"><i></i>REC</p>
+  <p class="ph-k k">大合照()</p>
+  <h2 class="ph-title">大合照</h2>
+  <p class="ph-sub">請大家慢慢走到台上</p>
+  <p class="ph-meta">1/125 · f/2.8 · ISO 400</p>
+</section>
+
+<section class="slide" id="s-qr" data-transition="assemble" data-sec="award" data-item="回饋表單" data-at="177">
+  <div class="qr-plate"><svg class="qr-svg" viewBox="0 0 @@QR_N@@ @@QR_N@@" shape-rendering="crispEdges" role="img" aria-label="回饋表單 QR code"><path d="@@QR_PATH@@"/></svg></div>
+  <p class="qr-k k">回饋表單()</p>
+  <h2 class="qr-title">回饋表單</h2>
+  <p class="qr-name">2026 資工系系員大會回饋表單</p>
+  <ol class="qr-step">
+    <li><i>01</i>打開手機相機</li>
+    <li><i>02</i>掃描左邊的 QR code</li>
+    <li><i>03</i>花一分鐘填寫回饋</li>
+  </ol>
+  <p class="qr-url">docs.google.com/forms</p>
+</section>
+
+<section class="slide" id="s-end" data-transition="exit" data-sec="award" data-st="done" data-item="散場" data-at="180">
+  <p class="e-k k">Process finished with exit code 0</p>
+  <h2 class="e-title">謝謝大家！</h2>
+  <ol class="e-list">
+    <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg>感謝 14 位教授的分享</li>
+    <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg>感謝總召與工作人員的用心籌備</li>
+    <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg>感謝各小隊隊輔的帶領</li>
+  </ol>
+  <p class="e-exit"><svg class="ic" viewBox="0 0 64 64" aria-hidden="true"><path d="M26 8v48M26 56h28V8H26"/><path d="M8 32h28M28 24l8 8-8 8"/></svg>請從後門離場</p>
+  <div class="code e-code">
+    <p class="code-bar"><i></i><i></i><i></i><span>系員大會.py — 執行完畢</span></p>
+    <ol>
+      <li><span><b class="kw">def</b> <b class="fn">系員大會</b>():</span><em></em></li>
+      <li><span>    <b class="fn">簽到</b>()</span><svg class="ck" viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></svg></li>
+      <li><span>    <b class="fn">專題介紹</b>(<b class="pa">教授</b>=<b class="nu">14</b>)</span><svg class="ck" viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></svg></li>
+      <li><span>    <b class="fn">小隊破冰</b>(<b class="pa">小隊</b>=<b class="nu">4</b>)</span><svg class="ck" viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></svg></li>
+      <li><span>    <b class="fn">休息</b>(<b class="pa">分鐘</b>=<b class="nu">10</b>)</span><svg class="ck" viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></svg></li>
+      <li><span>    <b class="fn">團康活動</b>(<b class="pa">時段</b>=<b class="nu">3</b>)</span><svg class="ck" viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></svg></li>
+      <li><span>    <b class="fn">頒獎</b>()</span><svg class="ck" viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></svg></li>
+      <li><span>    <b class="fn">大合照</b>()</span><svg class="ck" viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></svg></li>
+      <li><span>    <b class="fn">回饋表單</b>()</span><svg class="ck" viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6.5"/></svg></li>
+      <li class="cur"><span>    <b class="kw">return</b> <b class="nu">0</b></span><em>exit 0</em></li>
+    </ol>
+  </div>
+</section>
+
+<!-- ======================= 狀態列 ======================= -->
+<div class="sb" id="sb" aria-hidden="true" data-st="wait">
+  <p class="sb-st"><i></i><span>WAIT</span></p>
+  <p class="sb-crumb"><span>系員大會.py</span><b>›</b><span class="sc"></span><b class="sx">›</b><span class="it"></span></p>
+  <p class="sb-time"></p>
+  <div class="sb-tl">
+    <i class="sg" data-k="talk" style="left:0;width:33.333%"></i>
+    <i class="sg" data-k="ice" style="left:33.333%;width:11.111%"></i>
+    <i class="sg" data-k="rest" style="left:44.444%;width:5.556%"></i>
+    <i class="sg" data-k="games" style="left:50%;width:33.333%"></i>
+    <i class="sg" data-k="move" style="left:83.333%;width:2.778%"></i>
+    <i class="sg" data-k="award" style="left:86.111%;width:13.889%"></i>
+    <i class="sb-head"></i>
+  </div>
+  <p class="sb-clock"></p>
+  <p class="sb-n"><b>01</b> / 01</p>
+</div>
+
+</div>
+
+<script>/*@@GSAP@@*/</script>
+
+<!-- ================= 引擎（取自 motion-deck，另加 deck:change 事件） ================= -->
+<script>
+(() => {
+  const W = 1920, H = 1080;
+  const root = document.documentElement;
+  const stage = document.getElementById("stage");
+  const slides = [...stage.querySelectorAll(".slide")];
+  const G = window.gsap;
+  const mq = matchMedia("(prefers-reduced-motion: reduce)");
+  let reduced = mq.matches;
+  mq.addEventListener?.("change", e => (reduced = e.matches));
+  root.classList.add("js");
+
+  let index = 0, busy = false, pending = null, idleCtx = null, cleanups = [];
+  const scenes = {};
+  const clamp = i => Math.max(0, Math.min(slides.length - 1, i));
+
+  const fit = () => {
+    const s = Math.min(innerWidth / W, innerHeight / H);
+    stage.style.transform = `translate(-50%, -50%) scale(${s})`;
+  };
+  addEventListener("resize", fit); fit();
+
+  const T = {
+    fade(tl, from, to) {
+      tl.fromTo(to, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.6, ease: "sine.inOut" }, 0)
+        .to(from, { autoAlpha: 0, duration: 0.4, ease: "sine.inOut" }, 0)
+        .addLabel("enter", 0.15);
+    },
+  };
+
+  function startIdle(slide) {
+    if (!G || reduced || !scenes[slide.id]?.idle) return;
+    idleCtx = G.context(() => scenes[slide.id].idle(slide));
+  }
+  function stopIdle() { idleCtx?.revert(); idleCtx = null; }
+
+  function settle(tl, to, from) {
+    if (from) from.classList.remove("is-active");
+    cleanups.splice(0).forEach(f => f());
+    if (G) {
+      const touched = new Set([to, from].filter(Boolean));
+      tl?.getChildren(true, true, false).forEach(t =>
+        t.targets().forEach(el => el instanceof Element && el.isConnected && touched.add(el)));
+      G.set([...touched], { clearProps: "all" });
+    }
+    root.classList.remove("is-transitioning");
+    busy = false;
+    startIdle(to);
+    if (pending !== null) { const p = pending; pending = null; go(p); }
+  }
+
+  function updateHud() {
+    history.replaceState(null, "", `#${index + 1}`);
+    dispatchEvent(new CustomEvent("deck:change", { detail: { index, total: slides.length } }));
+  }
+
+  function go(target, dir) {
+    target = clamp(target);
+    if (target === index) return;
+    if (busy) { pending = target; return; }
+    dir = dir ?? (target > index ? 1 : -1);
+    const from = slides[index], to = slides[target];
+    busy = true;
+    root.classList.add("is-transitioning");
+    stopIdle();
+    index = target;
+    updateHud();
+    to.classList.add("is-active");
+
+    if (!G) {
+      to.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 400, easing: "ease-out" })
+        .finished.then(() => settle(null, to, from));
+      return;
+    }
+    G.set(from, { zIndex: 1 }); G.set(to, { zIndex: 2 });
+    const tl = G.timeline({ onComplete: () => settle(tl, to, from) });
+    if (reduced) { T.fade(tl, from, to, dir); return; }
+    const name = (dir > 0 ? to : from).dataset.transition;
+    (T[name] || T.fade)(tl, from, to, dir);
+    const at = tl.labels.enter ?? tl.duration() * 0.5;
+    scenes[to.id]?.enter?.(tl, to, dir, at);
+  }
+
+  function intro() {
+    const s = slides[index];
+    s.classList.add("is-active");
+    updateHud();
+    root.classList.add("ready");
+    if (!G || reduced) return startIdle(s);
+    busy = true;
+    root.classList.add("is-transitioning");
+    const tl = G.timeline({ onComplete: () => settle(tl, s) });
+    if (scenes.intro) scenes.intro(tl, s);
+    else tl.from(s, { autoAlpha: 0, duration: 0.5 }, 0);
+    scenes[s.id]?.enter?.(tl, s, 1, 0.2);
+  }
+
+  const next = () => go(index + 1, 1), prev = () => go(index - 1, -1);
+  addEventListener("keydown", e => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const k = e.key;
+    if (["ArrowRight", "ArrowDown", "PageDown", " ", "Enter"].includes(k)) { e.preventDefault(); next(); }
+    else if (["ArrowLeft", "ArrowUp", "PageUp", "Backspace"].includes(k)) { e.preventDefault(); prev(); }
+    else if (k === "Home") go(0);
+    else if (k === "End") go(slides.length - 1);
+    else if (k === "f" || k === "F") document.fullscreenElement ? document.exitFullscreen() : root.requestFullscreen?.();
+  });
+  let tx = 0, ty = 0, swipedAt = 0;
+  addEventListener("click", e => {
+    if (e.target.closest("a, button, input, textarea, select, [data-no-nav]")) return;
+    if (performance.now() - swipedAt < 600) return;
+    e.clientX < innerWidth * 0.3 ? prev() : next();
+  });
+  let wheelAcc = 0, wheelLock = 0;
+  addEventListener("wheel", e => {
+    const now = performance.now();
+    if (now < wheelLock) return;
+    wheelAcc += e.deltaY + e.deltaX;
+    if (Math.abs(wheelAcc) > 60) { wheelAcc > 0 ? next() : prev(); wheelAcc = 0; wheelLock = now + 900; }
+  }, { passive: true });
+  addEventListener("touchstart", e => { tx = e.touches[0].clientX; ty = e.touches[0].clientY; }, { passive: true });
+  addEventListener("touchend", e => {
+    const dx = e.changedTouches[0].clientX - tx, dy = e.changedTouches[0].clientY - ty;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 50) return;
+    swipedAt = performance.now();
+    (Math.abs(dx) > Math.abs(dy) ? dx : dy) < 0 ? next() : prev();
+  }, { passive: true });
+  addEventListener("hashchange", () => go(parseInt(location.hash.slice(1), 10) - 1 || 0));
+
+  window.Deck = {
+    go, next, prev,
+    get index() { return index; },
+    get total() { return slides.length; },
+    get busy() { return busy; },
+    get reduced() { return reduced; },
+    transition: (name, fn) => (T[name] = fn),
+    scene: (id, def) => (scenes[id] = def),
+    onCleanup: fn => cleanups.push(fn),
+  };
+
+  const fromHash = parseInt(location.hash.slice(1), 10);
+  if (fromHash) index = clamp(fromHash - 1);
+  const loaded = new Promise(r => (document.readyState === "complete" ? r() : addEventListener("load", r)));
+  const timeout = new Promise(r => setTimeout(r, 3000));
+  Promise.race([Promise.all([document.fonts?.ready, loaded]), timeout]).then(intro);
+})();
+</script>
+
+<!-- ================= 作品：狀態列、轉場、場景 ================= -->
+<script>
+(() => {
+  const G = window.gsap;
+  const W = 1920, H = 1080, BAR = 56;
+  const S = document.getElementById("stage"), sb = document.getElementById("sb");
+  const $ = (q, r = document) => r.querySelector(q);
+  const $$ = (q, r = document) => [...r.querySelectorAll(q)];
+  const slides = $$(".slide", S);
+  const pad = n => String(n).padStart(2, "0");
+  const QR = /*@@QR_ROWS@@*/;
+  const TEAMS = /*@@TEAMS_JSON@@*/;
+  const NUM = ["", "一", "二", "三", "四"];
+  const SEC = {
+    pre:   { n: "簽到 & 集合", t: "17:35–18:00" },
+    open:  { n: "開場", t: "18:00" },
+    talk:  { n: "專題介紹", t: "18:00–19:00", c: "#c6f432", bg: "#c6f432" },
+    ice:   { n: "小隊破冰", t: "19:00–19:20", c: "#46d9ff", bg: "#46d9ff" },
+    rest:  { n: "休息", t: "19:20–19:30", c: "#9a8cff", bg: "#191b40" },
+    games: { n: "團康活動", t: "19:30–20:30", c: "#ff5c9d", bg: "#ff5c9d" },
+    award: { n: "系員交流 & 頒獎", t: "20:35–21:00", c: "#ffbe3d", bg: "#ffbe3d" },
+  };
+  const ST = { wait: "WAIT", run: "RUN", sleep: "SLEEP", done: "EXIT 0" };
+
+  /* ---------------- 狀態列 ---------------- */
+  const crumb = $(".sb-crumb", sb);
+  addEventListener("deck:change", e => {
+    const { index, total } = e.detail, s = slides[index], sec = s.dataset.sec;
+    S.classList.toggle("bar-off", s.dataset.bar === "off");
+    const st = s.dataset.st || "run";
+    sb.dataset.st = st;
+    $(".sb-st span", sb).textContent = ST[st];
+    $(".sc", crumb).textContent = SEC[sec]?.n ?? "";
+    const item = s.dataset.item || "";
+    $(".it", crumb).textContent = item;
+    $(".sx", crumb).style.display = item ? "" : "none";
+    crumb.classList.remove("bump"); void crumb.offsetWidth; crumb.classList.add("bump");
+    $(".sb-time", sb).textContent = SEC[sec]?.t ?? "";
+    $$(".sg", sb).forEach(g => g.classList.toggle("on", g.dataset.k === sec || sec === "pre" || sec === "open"));
+    sb.style.setProperty("--p", Math.min(1, (+s.dataset.at || 0) / 180));
+    $(".sb-n", sb).innerHTML = `<b>${pad(index + 1)}</b> / ${pad(total)}`;
+    // 預先解碼接下來的原簡報頁，讓渲染轉場順暢
+    for (const n of [1, 2]) slides[index + n] && $("img", slides[index + n])?.decode?.().catch(() => {});
+  });
+  const tick = () => {
+    const d = new Date();
+    $(".sb-clock", sb).textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    // 休息環：19:20–19:30 之間依實際時間填滿
+    const m = d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60, p = Math.max(0, Math.min(1, (m - (19 * 60 + 20)) / 10));
+    $(".rr-p")?.setAttribute("stroke-dashoffset", (1583.4 * (1 - (m < 19 * 60 + 20 || m > 19 * 60 + 30 ? 1 : p))).toFixed(1));
+  };
+  tick(); setInterval(tick, 5000);
+
+  if (!G) return;   // 沒有 GSAP 時引擎會用淡入淡出，以下動態全部略過
+
+  /* ---------------- 工具 ---------------- */
+  function rectIn(el) {
+    const s = S.getBoundingClientRect(), r = el.getBoundingClientRect(), k = s.width / W;
+    return { x: (r.left - s.left) / k, y: (r.top - s.top) / k, w: r.width / k, h: r.height / k };
+  }
+  function fx(cls, html = "", tag = "div") {
+    const d = document.createElement(tag);
+    d.className = "fx " + cls; d.innerHTML = html; S.appendChild(d);
+    Deck.onCleanup(() => d.remove());
+    return d;
+  }
+  const C0 = "inset(-25% 100% -25% 0%)", C1 = "inset(-25% 0% -25% 0%)";
+  function wipe(tl, els, at, o = {}) {
+    els = [].concat(els).filter(Boolean);
+    if (els.length) tl.fromTo(els, { clipPath: C0 }, { clipPath: C1, duration: o.d ?? .6, ease: o.ease ?? "expo.out", stagger: o.st ?? .06 }, at);
+  }
+  function type(tl, el, at, cps = 40) {
+    if (!el) return;
+    const n = Math.max(1, [...el.textContent].length);
+    tl.fromTo(el, { clipPath: C0 }, { clipPath: C1, duration: n / cps, ease: `steps(${n})` }, at);
+  }
+  const CJK = /[㐀-鿿]/;
+  const POOL = "資工系員大會程式網路晶片影像演算法資料嵌入式實驗室教授破冰團康頒獎統整合通訊軟體發展無線計算";
+  const POOL_A = "0123456789#$%&*+=<>/";
+  const ghost = c => CJK.test(c) ? "　" : /\s/.test(c) ? c : " ";
+  const rnd = c => CJK.test(c) ? POOL[Math.random() * POOL.length | 0] : /\s/.test(c) ? c : POOL_A[Math.random() * POOL_A.length | 0];
+  function scramble(tl, el, at, dur = .7) {
+    if (!el) return;
+    const orig = el.textContent, ch = [...orig];
+    el.textContent = ch.map(ghost).join("");
+    Deck.onCleanup(() => (el.textContent = orig));
+    const st = { p: 0 }; let last = 0, noise = ch.map(rnd);
+    tl.to(st, { p: 1, duration: dur, ease: "none", onUpdate() {
+      const now = performance.now();
+      if (now - last > 55) { noise = ch.map(rnd); last = now; }
+      const n = st.p * ch.length;
+      el.textContent = ch.map((c, i) => i < Math.floor(n) ? c : i < n + 3 ? noise[i] : ghost(c)).join("");
+    }, onComplete() { el.textContent = orig; } }, at);
+  }
+  function burst(x, y, colors, n = 36, spread = 1) {
+    const box = document.createElement("div"); box.className = "fx burst"; S.appendChild(box);
+    const tl = G.timeline({ onComplete: () => box.remove() });
+    for (let i = 0; i < n; i++) {
+      const p = document.createElement("i"); p.style.background = colors[i % colors.length]; box.appendChild(p);
+      const a = Math.random() * Math.PI * 2, d = (180 + Math.random() * 420) * spread;
+      tl.fromTo(p, { x, y, rotation: 0, scale: 1, autoAlpha: 1 }, { immediateRender: false,
+        x: x + Math.cos(a) * d, y: y + Math.sin(a) * d * .75 + 160, rotation: Math.random() * 600 - 300, scale: .3,
+        autoAlpha: 0, duration: 1 + Math.random() * .6, ease: "power3.out" }, Math.random() * .08);
+    }
+    return tl;
+  }
+  // 讓 from 頁的內容逐條被「刪除」
+  function clearOut(tl, from, t0 = 0) {
+    const kids = [...from.children].filter(k => !k.matches("canvas"));
+    if (!from.matches(".sec")) tl.to(kids, { backgroundColor: "rgba(198,244,50,.2)", duration: .01, stagger: .03 }, t0);
+    tl.fromTo(kids, { clipPath: "inset(-10% 0% -10% 0%)" }, { clipPath: "inset(-10% 0% -10% 100%)", duration: .38, ease: "power3.in", stagger: .03 }, t0 + .12);
+    return t0 + .5 + kids.length * .03;
+  }
+
+  /* ---------------- 轉場 ---------------- */
+  // 一般換頁：舊內容逐條刪除，新內容由場景接手
+  function clearT(tl, from, to) {
+    const end = clearOut(tl, from);
+    tl.from(to, { autoAlpha: 0, duration: .01 }, end - .12);
+    tl.addLabel("enter", end - .12);
+  }
+  // 轉場都是為「相鄰兩頁」設計的；跳頁（Home / End / 網址 #n）改用通用轉場
+  const at = el => slides.indexOf(el);
+  const transition = (name, fn) => Deck.transition(name, (tl, f, t, d) =>
+    Math.abs(at(f) - at(t)) > 1 ? (t.matches(".pdf") ? renderIn(tl, f, t) : clearT(tl, f, t)) : fn(tl, f, t, d));
+  transition("clear", clearT);
+
+  // 開機：舊畫面像 CRT 關機收成一條線 → 執行紀錄 → 主標題
+  transition("boot", (tl, from, to, dir) => {
+    if (dir < 0) { tl.to(from, { autoAlpha: 0, duration: .4 }, 0).from(to, { autoAlpha: 0, duration: .5 }, .2); tl.addLabel("enter", .2); return; }
+    tl.to(from, { scaleY: .006, scaleX: 1.02, duration: .34, ease: "power4.in" }, 0)
+      .to(from, { scaleX: 0, autoAlpha: 0, duration: .2, ease: "power3.in" }, .34);
+    const line = fx("bline");
+    tl.fromTo(line, { scaleX: 0 }, { scaleX: 1, duration: .28, ease: "power4.out" }, .22)
+      .to(line, { scaleX: 0, autoAlpha: 0, duration: .25, ease: "power3.in" }, .55);
+    const log = fx("blog", [
+      `<p class="cmd"><b class="ok">$</b> python3 系員大會.py</p>`,
+      `<p><span class="t">[ 0.012 ]</span><span>載入 教授</span><span class="v">14</span><span class="ok">ok</span></p>`,
+      `<p><span class="t">[ 0.048 ]</span><span>載入 實驗室</span><span class="v">14</span><span class="ok">ok</span></p>`,
+      `<p><span class="t">[ 0.093 ]</span><span>建立 小隊</span><span class="v">4</span><span class="ok">ok</span></p>`,
+      `<p><span class="t">[ 0.121 ]</span><span>指派 隊輔</span><span class="v">4</span><span class="ok">ok</span></p>`,
+      `<p><span class="t">[ 0.164 ]</span><span>準備 團康活動</span><span class="v">3 個時段</span><span class="ok">ok</span></p>`,
+      `<p><span class="t">[ 0.201 ]</span><span>預估執行時間</span><span class="v">180 min</span><span class="ok">ok</span></p>`,
+      `<p class="last">&gt;&gt;&gt; 系員大會()  開始執行</p>`].join(""));
+    const lines = $$("p", log), t1 = .62;
+    tl.from(lines, { autoAlpha: 0, duration: .01, stagger: .1 }, t1);
+    tl.from($$(".ok:not(b)", log), { autoAlpha: 0, duration: .01, stagger: .1 }, t1 + .06);
+    const t2 = t1 + lines.length * .1 + .35;
+    tl.to(log, { y: -120, autoAlpha: 0, duration: .4, ease: "power3.in" }, t2);
+    tl.from(to, { autoAlpha: 0, duration: .01 }, t2 + .3);
+    tl.addLabel("enter", t2 + .3);
+  });
+
+  // 從時間軸放大：狀態列上的段落色塊長成整個畫面
+  function grow(tl, from, to, k) {
+    const sg = $(`.sg[data-k="${k}"]`, sb);
+    if (!sg) return clearT(tl, from, to);
+    const r = rectIn(sg), c = SEC[k];
+    const ov = fx("zov");
+    G.set(ov, { x: r.x, y: r.y, width: r.w, height: r.h, backgroundColor: c.c });
+    tl.to(ov, { y: r.y - 40, height: r.h + 40, duration: .18, ease: "power2.out" }, 0)
+      .to(ov, { x: 0, width: W, duration: .6, ease: "power3.inOut" }, .08)
+      .to(ov, { y: 0, height: H - BAR, backgroundColor: c.bg, duration: .6, ease: "power3.inOut" }, .3);
+    tl.to(from, { scale: .96, autoAlpha: .3, duration: .7, ease: "power2.in" }, 0);
+    tl.from(to, { autoAlpha: 0, duration: .01 }, .92);
+    tl.to(ov, { autoAlpha: 0, duration: .01 }, .93);
+    tl.addLabel("enter", .82);
+  }
+  // 收回時間軸：整個畫面縮回狀態列上的段落色塊
+  function shrink(tl, from, to, k) {
+    const sg = $(`.sg[data-k="${k}"]`, sb);
+    if (!sg) return clearT(tl, from, to);
+    const r = rectIn(sg), c = SEC[k];
+    const ov = fx("zov");
+    G.set(ov, { x: 0, y: 0, width: W, height: H - BAR, backgroundColor: c.bg });
+    G.set(from, { autoAlpha: 0 });
+    tl.to(ov, { y: r.y - 40, height: r.h + 40, backgroundColor: c.c, duration: .55, ease: "expo.inOut" }, 0)
+      .to(ov, { x: r.x, width: r.w, duration: .55, ease: "expo.inOut" }, .2)
+      .to(ov, { y: r.y, height: r.h, duration: .2, ease: "power2.in" }, .7)
+      .to(ov, { autoAlpha: 0, duration: .12 }, .86);
+    tl.addLabel("enter", .32);
+  }
+  transition("zoom", (tl, f, t, d) => d > 0 ? grow(tl, f, t, t.dataset.sec) : shrink(tl, f, t, f.dataset.sec));
+  transition("unzoom", (tl, f, t, d) => d > 0 ? shrink(tl, f, t, f.dataset.sec) : grow(tl, f, t, t.dataset.sec));
+
+  // 渲染：原簡報頁像載入中的圖片，從粗馬賽克一層層精細到原圖
+  const LV = [96, 48, 24, 12, 6, 3, 1], WT = [.34, .15, .12, .1, .1, .1, .09];
+  function levels(img) {
+    return LV.map(b => {
+      if (b === 1) return img;
+      const c = document.createElement("canvas"); c.width = Math.ceil(W / b); c.height = Math.ceil(H / b);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      return c;
+    });
+  }
+  function paintLevel(ctx, lv, L, y0, y1) {
+    if (L < 0 || y1 <= y0) return;
+    ctx.save(); ctx.beginPath(); ctx.rect(0, y0, W, y1 - y0); ctx.clip();
+    ctx.imageSmoothingEnabled = false;
+    const s = lv[L];
+    if (LV[L] === 1) ctx.drawImage(s, 0, 0, W, H); else ctx.drawImage(s, 0, 0, s.width * LV[L], s.height * LV[L]);
+    ctx.restore();
+  }
+  function canvasIn(slide) {
+    const cv = document.createElement("canvas"); cv.width = W; cv.height = H; cv.className = "rcv";
+    slide.appendChild(cv); Deck.onCleanup(() => cv.remove());
+    return cv;
+  }
+  function renderIn(tl, from, to) {
+    const img = $("img", to);
+    if (!img?.complete || !img.naturalWidth) { tl.from(to, { autoAlpha: 0, duration: .5 }, 0); tl.addLabel("enter", .2); return; }
+    const ctx = canvasIn(to).getContext("2d"), lv = levels(img);
+    const head = document.createElement("i"); head.className = "rhead"; head.innerHTML = "<b></b>"; to.appendChild(head);
+    Deck.onCleanup(() => head.remove());
+    const tag = $("b", head), page = (img.alt.match(/第 (\d+) 頁/) || [])[1];
+    const ends = WT.reduce((a, w) => (a.push((a.at(-1) || 0) + w), a), []);
+    const st = { p: 0 }, DUR = 1.35;
+    const draw = () => {
+      const p = st.p;
+      let L = ends.findIndex(e => p <= e + 1e-6); if (L < 0) L = LV.length - 1;
+      const a = L ? ends[L - 1] : 0, f = Math.min(1, (p - a) / (ends[L] - a)), y = Math.round(f * H);
+      ctx.clearRect(0, 0, W, H);
+      paintLevel(ctx, lv, L, 0, y); paintLevel(ctx, lv, L - 1, y, H);
+      head.style.transform = `translateY(${y}px)`;
+      head.style.opacity = p >= 1 ? 0 : L === 0 ? 1 : .55;
+      tag.textContent = `render p.${page ?? ""}  ${LV[L]}px → ${L === LV.length - 1 ? "原圖" : LV[L + 1] + "px"}`;
+    };
+    draw();
+    tl.from(img, { autoAlpha: 0, duration: .01 }, DUR + .02);
+    tl.to(from, { autoAlpha: 0, duration: .01 }, DUR * WT[0]);
+    tl.to(st, { p: 1, duration: DUR, ease: "none", onUpdate: draw }, 0);
+    tl.addLabel("enter", .15);
+  }
+  function renderOut(tl, from, to) {
+    const img = $("img", from);
+    G.set(from, { zIndex: 3 });
+    if (!img?.complete || !img.naturalWidth) { tl.to(from, { autoAlpha: 0, duration: .45 }, 0); tl.addLabel("enter", .2); return; }
+    const cv = canvasIn(from), ctx = cv.getContext("2d"), lv = levels(img);
+    const st = { L: 0 };
+    const draw = () => { ctx.clearRect(0, 0, W, H); paintLevel(ctx, lv, LV.length - 1 - Math.round(st.L), 0, H); };
+    draw();
+    tl.fromTo(img, { autoAlpha: 0 }, { autoAlpha: 0, duration: .01 }, 0);
+    tl.to(st, { L: LV.length - 1, duration: .5, ease: "power1.in", onUpdate: draw }, 0)
+      .to(cv, { autoAlpha: 0, duration: .3, ease: "power1.in" }, .45);
+    tl.addLabel("enter", .35);
+  }
+  transition("render", (tl, f, t, d) => d > 0 ? renderIn(tl, f, t) : renderOut(tl, f, t));
+
+  // 掃描：個人頁 → 實驗室頁，像掃描器的光條掃過
+  transition("scan", (tl, from, to, dir) => {
+    const line = fx("scanl"), D = .9, e = "power2.inOut";
+    if (dir > 0) {
+      tl.fromTo(to, { clipPath: "inset(0% 0% 100% 0%)" }, { clipPath: "inset(0% 0% 0% 0%)", duration: D, ease: e }, 0);
+      tl.fromTo(line, { y: 0 }, { y: H, duration: D, ease: e }, 0);
+    } else {
+      G.set(from, { zIndex: 3 });
+      tl.fromTo(from, { clipPath: "inset(0% 0% 0% 0%)" }, { clipPath: "inset(0% 0% 100% 0%)", duration: D, ease: e }, 0);
+      tl.fromTo(line, { y: H }, { y: 0, duration: D, ease: e }, 0);
+    }
+    tl.to(line, { autoAlpha: 0, duration: .15 }, D - .1);
+    tl.addLabel("enter", .3);
+  });
+
+  // 收進清單：上一位老師的頁面縮成縮圖，收進右側清單打勾
+  const stowTarget = card => $(".cd-list li.cur", card)?.previousElementSibling || $(".cd-lh", card);
+  transition("stow", (tl, from, to, dir) => {
+    if (dir > 0) {
+      const r = rectIn(stowTarget(to)), s = r.h / H;
+      G.set(from, { zIndex: 3, transformOrigin: "0 0" });
+      tl.to(from, { x: r.x, y: r.y, scale: s, duration: .8, ease: "expo.inOut" }, 0)
+        .to(from, { autoAlpha: 0, duration: .18, ease: "power1.in" }, .72);
+      tl.addLabel("enter", .5);
+    } else {
+      const r = rectIn(stowTarget(from));
+      G.set(to, { zIndex: 3, transformOrigin: "0 0" });
+      tl.fromTo(to, { x: r.x, y: r.y, scale: r.h / H, autoAlpha: 0 }, { x: 0, y: 0, scale: 1, autoAlpha: 1, duration: .8, ease: "expo.inOut" }, 0);
+      tl.to(from, { autoAlpha: 0, duration: .3 }, .5);
+      tl.addLabel("enter", .2);
+    }
+  });
+
+  // 最後一頁原簡報 → 實驗室總覽：原簡報反向渲染、卸載
+  transition("dim", (tl, from, to, dir) => {
+    dir < 0 ? renderIn(tl, from, to) : renderOut(tl, from, to);
+  });
+
+  // 名次切換：大數字像里程表一樣滾動
+  transition("odometer", (tl, from, to, dir) => {
+    const d = dir > 0 ? 1 : -1, fd = $(".aw-digit span", from), td = $(".aw-digit span", to);
+    if (!fd || !td) return clearT(tl, from, to);
+    tl.to(fd, { yPercent: -100 * d, duration: .55, ease: "expo.in" }, 0);
+    tl.to([$(".aw-body", from), $(".aw-pick", from)], { autoAlpha: 0, x: -50, duration: .3, ease: "power2.in" }, 0);
+    tl.from(td, { yPercent: 100 * d, duration: .75, ease: "expo.out" }, .5);
+    to._odo = true;
+    tl.addLabel("enter", .55);
+  });
+
+  // 開獎：讀取條跑完才揭曉獎品
+  transition("unbox", (tl, from, to, dir) => {
+    if (dir < 0) return clearT(tl, from, to);
+    const t0 = clearOut(tl, from) - .2;
+    const ld = fx("ubx", `<p>${to.dataset.load}</p><div><i></i></div>`);
+    tl.fromTo(ld, { autoAlpha: 0 }, { autoAlpha: 1, duration: .15 }, t0)
+      .fromTo($("i", ld), { scaleX: 0 }, { scaleX: 1, duration: .85, ease: "power3.inOut" }, t0 + .05)
+      .to(ld, { autoAlpha: 0, scale: 1.3, duration: .22, ease: "power2.in" }, t0 + .95);
+    tl.from(to, { autoAlpha: 0, duration: .01 }, t0 + 1.1);
+    tl.addLabel("enter", t0 + 1.1);
+  });
+
+  // 快門：六角光圈閉合 → 閃光 → 打開
+  transition("shutter", (tl, from, to) => {
+    const ir = fx("iris", `<svg viewBox="0 0 ${W} ${H}"><path fill="#000" fill-rule="evenodd"/></svg>`);
+    const path = $("path", ir), st = { r: 1250, a: 0 };
+    const draw = () => {
+      let d = `M-10 -10H${W + 10}V${H + 10}H-10Z`;
+      for (let i = 0; i < 6; i++) {
+        const t = (st.a + i * 60) * Math.PI / 180;
+        d += `${i ? "L" : "M"}${(960 + Math.cos(t) * st.r).toFixed(1)} ${(540 + Math.sin(t) * st.r).toFixed(1)}`;
+      }
+      path.setAttribute("d", d + "Z");
+    };
+    draw();
+    tl.to(st, { r: 0, a: 70, duration: .55, ease: "power3.in", onUpdate: draw }, 0);
+    tl.from(to, { autoAlpha: 0, duration: .01 }, .56);
+    tl.to(from, { autoAlpha: 0, duration: .01 }, .56);
+    const fl = fx("flash");
+    tl.fromTo(fl, { autoAlpha: 0 }, { autoAlpha: .85, duration: .05 }, .6).to(fl, { autoAlpha: 0, duration: .6, ease: "power2.out" }, .66);
+    tl.to(st, { r: 1250, a: 140, duration: .75, ease: "power3.out", onUpdate: draw }, .62);
+    tl.addLabel("enter", .7);
+  });
+
+  // QR code：散落的位元飛回自己的位置
+  transition("assemble", (tl, from, to, dir) => {
+    if (dir < 0) return clearT(tl, from, to);
+    const t0 = clearOut(tl, from) - .15;
+    tl.from(to, { autoAlpha: 0, duration: .01 }, t0);
+    const svg = $(".qr-svg", to), r = rectIn(svg), n = QR.length, m = r.w / n;
+    const mods = [];
+    QR.forEach((row, j) => [...row].forEach((c, i) => {
+      if (c !== "1") return;
+      const dc = Math.hypot(i - (n - 1) / 2, j - (n - 1) / 2) / (n * .7);
+      mods.push({ ex: r.x + i * m, ey: r.y + j * m, sx: Math.random() * W, sy: Math.random() * (H - BAR), d: dc * .5 + Math.random() * .15 });
+    }));
+    const cv = fx("qcv", "", "canvas"); cv.width = W; cv.height = H;
+    const ctx = cv.getContext("2d"), st = { p: 0 }, ease = t => 1 - Math.pow(1 - t, 4);
+    const draw = () => {
+      ctx.clearRect(0, 0, W, H);
+      for (const o of mods) {
+        let t = (st.p - o.d) / .5; if (t <= 0) continue; t = Math.min(1, t);
+        const e = ease(t), s = m * (.3 + .7 * e);
+        ctx.fillStyle = t < 1 ? "#c6f432" : "#0a0d11";
+        ctx.fillRect(o.sx + (o.ex - o.sx) * e + (m - s) / 2, o.sy + (o.ey - o.sy) * e + (m - s) / 2, s, s);
+      }
+    };
+    tl.to(st, { p: 1.16, duration: 1.7, ease: "none", onUpdate: draw }, t0 + .25);
+    tl.from(svg, { autoAlpha: 0, duration: .01 }, t0 + 1.98);
+    tl.to(cv, { autoAlpha: 0, duration: .01 }, t0 + 2);
+    tl.addLabel("enter", t0);
+  });
+
+  // 結束：程式結束紀錄
+  transition("exit", (tl, from, to, dir) => {
+    if (dir < 0) return clearT(tl, from, to);
+    const t0 = clearOut(tl, from);
+    const log = fx("blog", [
+      `<p class="cmd">系員大會() 執行完畢</p>`,
+      `<p><span class="t">  ──</span><span>執行時間</span><span class="v">180 min</span><span class="ok">ok</span></p>`,
+      `<p><span class="t">  ──</span><span>教授</span><span class="v">14</span><span class="ok">ok</span></p>`,
+      `<p><span class="t">  ──</span><span>實驗室</span><span class="v">14</span><span class="ok">ok</span></p>`,
+      `<p><span class="t">  ──</span><span>小隊</span><span class="v">4</span><span class="ok">ok</span></p>`,
+      `<p class="last">Process finished with exit code 0</p>`].join(""));
+    const lines = $$("p", log);
+    tl.from(lines, { autoAlpha: 0, duration: .01, stagger: .11 }, t0);
+    const t1 = t0 + lines.length * .11 + .4;
+    tl.to(log, { y: -100, autoAlpha: 0, duration: .4, ease: "power3.in" }, t1);
+    tl.from(to, { autoAlpha: 0, duration: .01 }, t1 + .3);
+    tl.addLabel("enter", t1 + .3);
+  });
+
+  /* ---------------- 場景（新頁內容的進場） ---------------- */
+  Deck.scene("intro", (tl, s) => { tl.from(s, { autoAlpha: 0, duration: .6, ease: "power1.out" }, 0); });
+
+  Deck.scene("s-wait", { enter(tl, el, dir, at) {
+    type(tl, $(".w-top", el), at, 50);
+    wipe(tl, $(".w-lbl", el), at + .1);
+    scramble(tl, $(".w-time", el), at + .1, .8);
+    wipe(tl, [$(".w-title", el), $(".w-meta", el)], at + .35, { d: .8 });
+    wipe(tl, $(".w-note", el), at + .6);
+    tl.from($(".w-code", el), { clipPath: "inset(0% 0% 100% 0%)", duration: .7, ease: "expo.inOut" }, at + .15);
+    tl.from($$(".w-code li", el), { autoAlpha: 0, duration: .01, stagger: .06 }, at + .5);
+  }});
+
+  Deck.scene("s-hello", { enter(tl, el, dir, at) {
+    type(tl, $(".h-cmd", el), at, 60);
+    wipe(tl, $(".h-l1", el), at + .1, { d: .7 });
+    scramble(tl, $(".h-l2", el), at + .15, .9);
+    tl.from($(".caret", el), { x: -1520, duration: .9, ease: "none" }, at + .15);
+    wipe(tl, $(".h-sub", el), at + .9, { d: .9 });
+    wipe(tl, [$(".h-meta", el), $(".h-pid", el)], at + 1.1, { d: .7 });
+  }});
+
+  Deck.scene("s-rules", { enter(tl, el, dir, at) {
+    type(tl, $(".r-k", el), at);
+    scramble(tl, $(".r-title", el), at, .5);
+    $$(".r-row", el).forEach((r, i) => {
+      const t = at + .3 + i * .28;
+      tl.from($(".r-bar", r), { scaleY: 0, duration: .5, ease: "expo.out" }, t);
+      tl.from($(".r-ic", r), { scale: .5, rotation: -30, autoAlpha: 0, duration: .6, ease: "back.out(2.4)" }, t + .08);
+      type(tl, $(".r-tag", r), t + .1, 50);
+      wipe(tl, $(".r-txt", r), t + .2, { d: .8 });
+    });
+  }});
+
+  Deck.scene("s-agenda", { enter(tl, el, dir, at) {
+    type(tl, $(".a-k", el), at, 60);
+    scramble(tl, $(".a-title", el), at, .5);
+    const fl = $(".fl", el), r = rectIn(fl), D = 1.9;
+    const ph = fx("aph", "<b>18:00</b>");
+    G.set(ph, { left: r.x, top: r.y - 30, height: r.h - 60 });
+    const lbl = $("b", ph), st = { m: 0 };
+    tl.fromTo(fl, { clipPath: "inset(-5% 100% -5% 0%)" }, { clipPath: "inset(-5% 0% -5% 0%)", duration: D, ease: "power1.inOut" }, at + .25);
+    tl.fromTo(ph, { x: 0 }, { x: r.w, duration: D, ease: "power1.inOut" }, at + .25);
+    tl.to(st, { m: 180, duration: D, ease: "power1.inOut", onUpdate() {
+      const t = 18 * 60 + Math.round(st.m); lbl.textContent = `${t / 60 | 0}:${pad(t % 60)}`;
+    } }, at + .25);
+    tl.to(ph, { autoAlpha: 0, duration: .25 }, at + .25 + D);
+    tl.from($$(".fl-f b, .fl-f span", el), { autoAlpha: 0, y: 12, duration: .35, stagger: .07, ease: "power2.out" }, at + .45);
+    wipe(tl, $$(".a-lg span", el), at + D, { st: .08 });
+  }});
+
+  // 段落開頭
+  $$(".sec").forEach(s => Deck.scene(s.id, { enter(tl, el, dir, at) {
+    type(tl, $(".sec-time", el), at, 40);
+    tl.from($(".sec-no", el), { xPercent: 30, skewX: -12, autoAlpha: 0, duration: 1.1, ease: "expo.out" }, at);
+    const t = $(".sec-title", el);
+    tl.fromTo(t, { clipPath: "inset(-20% 100% -20% 0%)" }, { clipPath: "inset(-20% 0% -20% 0%)", duration: .8, ease: "expo.inOut" }, at + .05);
+    tl.from(t, { x: -80, duration: 1, ease: "expo.out" }, at + .05);
+    type(tl, $(".sec-call", el), at + .45, 55);
+    wipe(tl, $$(".sec-sub, .rest-back, .rest-tip", el), at + .65, { d: .8, st: .1 });
+    const ring = $(".rest-ring", el);
+    if (ring) {
+      tl.from($$(".rr-t line", el), { autoAlpha: 0, duration: .01, stagger: .05 }, at + .2);
+      tl.from($(".rr-m", el), { scale: 0, rotation: -120, transformOrigin: "50% 50%", duration: .9, ease: "back.out(1.6)" }, at + .4);
+      tl.from(ring, { rotation: -40, duration: 1.2, ease: "expo.out" }, at);
+    }
+  }}));
+
+  // 教授引言卡
+  $$(".card").forEach(c => Deck.scene(c.id, { enter(tl, el, dir, at) {
+    const cur = $(".cd-cur", el), prev = $(".cd-list li.cur", el)?.previousElementSibling;
+    tl.from(cur, { yPercent: -100, duration: .5, ease: "expo.out" }, at);
+    if (prev) tl.from($(".ck", prev), { scale: 0, rotation: -60, transformOrigin: "50% 50%", duration: .45, ease: "back.out(3)" }, at - .05);
+    type(tl, $(".cd-idx", el), at, 30);
+    wipe(tl, $(".cd-field", el), at + .12, { d: .5 });
+    scramble(tl, $(".nm", el), at + .05, .8);
+    wipe(tl, $(".cd-name small", el), at + .5, { d: .5 });
+    wipe(tl, $(".cd-role", el), at + .55, { d: .7 });
+    const rows = $$(".cd-meta > div", el);
+    wipe(tl, rows.map(r => $("dt", r)), at + .55, { d: .4, st: .09 });
+    wipe(tl, rows.map(r => $("dd", r)), at + .62, { d: .8, st: .09 });
+    tl.from($$(".chips span", el), { autoAlpha: 0, scale: .8, duration: .35, stagger: .045, ease: "back.out(2)" }, at + .75);
+  }}));
+
+  // 實驗室總覽：先依出場順序排成一列，再 groupby 領域分成三欄
+  Deck.scene("s-labs", { enter(tl, el, dir, at) {
+    type(tl, $(".lb-k", el), at, 60);
+    scramble(tl, $(".lb-title", el), at, .6);
+    wipe(tl, $(".lb-sub", el), at + .3, { d: .8 });
+    const rows = $$(".lb-col li", el).sort((a, b) => a.dataset.i - b.dataset.i);
+    const rects = rows.map(rectIn);
+    rows.forEach((r, n) => {
+      const f = rects[n];
+      G.set(r, { x: 690 - f.x, y: 372 + n * 44 - f.y, scale: .5, transformOrigin: "0 0" });
+      tl.fromTo(r, { autoAlpha: 0 }, { autoAlpha: 1, duration: .01 }, at + .2 + n * .045);
+      tl.to(r, { x: 0, y: 0, scale: 1, duration: .9, ease: "expo.inOut" }, at + 1.05 + n * .025);
+    });
+    wipe(tl, $$(".lb-col h3", el), at + 1.45, { d: .7, st: .1 });
+  }});
+
+  // 分組名單：名字像發牌一樣，從畫面下方輪流發進四個小隊
+  Deck.scene("s-teams", { enter(tl, el, dir, at) {
+    type(tl, $(".tm-k", el), at, 60);
+    scramble(tl, $(".tm-title", el), at, .5);
+    const cols = $$(".tm-col", el);
+    wipe(tl, cols.flatMap(c => [$(".tm-no", c), $("h3", c)]), at + .15, { d: .6, st: .05 });
+    const items = [];
+    for (let r = 0; r < 6; r++) cols.forEach(c => { const it = r < 5 ? $$("li", c)[r] : $(".tm-lead", c); if (it) items.push(it); });
+    const rects = items.map(rectIn);
+    items.forEach((it, n) => {
+      const f = rects[n];
+      G.set(it, { x: 960 - f.x - f.w / 2, y: 1130 - f.y, rotation: (n % 2 ? 1 : -1) * (6 + (n * 7) % 11) });
+      tl.to(it, { x: 0, y: 0, rotation: 0, duration: .62, ease: "power3.out" }, at + .45 + n * .06);
+    });
+    wipe(tl, $(".tm-note", el), at + .45 + items.length * .06 + .3, { d: .8 });
+  }});
+
+  Deck.scene("s-sched", { enter(tl, el, dir, at) {
+    type(tl, $(".sc-k", el), at, 60);
+    scramble(tl, $(".sc-title", el), at, .4);
+    $$(".sc-list li", el).forEach((li, i) => {
+      const t = at + .2 + i * .14;
+      type(tl, $("time", li), t, 70);
+      wipe(tl, $("b", li), t + .08, { d: .6 });
+      tl.from($(".bar", li), { scaleX: 0, transformOrigin: "0 50%", duration: .7, ease: "expo.out" }, t + .15);
+      tl.from($(".dur", li), { autoAlpha: 0, duration: .3 }, t + .3);
+    });
+  }});
+
+  // 頒獎
+  $$(".slide.award").forEach(a => Deck.scene(a.id, { enter(tl, el, dir, at) {
+    if (!el._odo) tl.from($(".aw-digit span", el), { yPercent: 100, duration: .9, ease: "expo.out" }, at);
+    el._odo = false;
+    type(tl, $(".aw-k", el), at + .1, 50);
+    scramble(tl, $(".aw-title", el), at + .1, .6);
+    wipe(tl, $(".aw-team", el), at + .45, { d: .7 });
+    if (el.classList.contains("is-set")) wipe(tl, $(".aw-mem", el), at + .65, { d: .8 });
+    tl.from($$(".aw-pick > *", el), { autoAlpha: 0, duration: .25, stagger: .05 }, at + .7);
+  }}));
+
+  Deck.scene("s-chicken", { enter(tl, el, dir, at) {
+    type(tl, $(".pz-k", el), at, 50);
+    tl.from($(".pz-title", el), { scale: 1.9, autoAlpha: 0, transformOrigin: "25% 60%", duration: .6, ease: "expo.out" }, at);
+    tl.from($(".pz-art", el), { y: -760, rotation: -28, duration: 1.05, ease: "bounce.out" }, at + .05);
+    tl.add(burst(1440, 470, ["#f9d47e", "#e9a640", "#c97a22", "#ffbe3d"], 46), at + .45);
+    wipe(tl, $(".pz-team", el), at + .35, { d: .7 });
+    wipe(tl, $(".pz-note", el), at + .9, { d: .8 });
+  }});
+
+  Deck.scene("s-mat", { enter(tl, el, dir, at) {
+    type(tl, $(".pz-k", el), at, 50);
+    tl.from($(".pz-title", el), { scale: 1.6, autoAlpha: 0, transformOrigin: "20% 60%", duration: .6, ease: "expo.out" }, at);
+    tl.from($(".pz-art", el), { y: 120, rotation: 6, autoAlpha: 0, duration: .8, ease: "expo.out" }, at + .05);
+    const pbs = $$(".pb", el);
+    tl.from(pbs, { scale: 0, transformOrigin: "50% 50%", duration: .4, ease: "back.out(3)",
+      stagger: (i, t) => +t.parentNode.dataset.d * .07 }, at + .3);
+    tl.from($$(".feet > g > *", el), { autoAlpha: 0, duration: .01, stagger: .05 }, at + 1);
+    wipe(tl, $(".pz-team", el), at + .35, { d: .7 });
+  }});
+
+  Deck.scene("s-photo", { enter(tl, el, dir, at) {
+    tl.from($(".vf-c", el), { scale: 1.12, autoAlpha: 0, transformOrigin: "50% 50%", duration: .8, ease: "expo.out" }, at);
+    tl.fromTo($(".vf-focus", el), { scale: 1.8, transformOrigin: "50% 50%" }, { scale: 1, duration: 1.1, ease: "elastic.out(1, .45)" }, at + .1);
+    type(tl, $(".rec", el), at + .2, 30);
+    type(tl, $(".ph-k", el), at + .2, 50);
+    scramble(tl, $(".ph-title", el), at + .25, .6);
+    wipe(tl, [$(".ph-sub", el), $(".ph-meta", el)], at + .6, { d: .8 });
+  }});
+
+  Deck.scene("s-qr", { enter(tl, el, dir, at) {
+    tl.from($(".qr-plate", el), { scale: .9, autoAlpha: 0, duration: .45, ease: "expo.out" }, at);
+    type(tl, $(".qr-k", el), at + .2, 50);
+    scramble(tl, $(".qr-title", el), at + .25, .6);
+    wipe(tl, $(".qr-name", el), at + .5, { d: .8 });
+    wipe(tl, $$(".qr-step li", el), at + .7, { d: .7, st: .12 });
+    type(tl, $(".qr-url", el), at + 1.1, 60);
+  }});
+
+  Deck.scene("s-end", { enter(tl, el, dir, at) {
+    type(tl, $(".e-k", el), at, 70);
+    scramble(tl, $(".e-title", el), at + .1, .7);
+    $$(".e-list li", el).forEach((li, i) => {
+      tl.from($("svg", li), { scale: 0, rotation: -60, transformOrigin: "50% 50%", duration: .4, ease: "back.out(3)" }, at + .5 + i * .15);
+      wipe(tl, li, at + .55 + i * .15, { d: .8 });
+    });
+    wipe(tl, $(".e-exit", el), at + 1.1, { d: .8 });
+    tl.from($(".e-code", el), { clipPath: "inset(0% 0% 100% 0%)", duration: .7, ease: "expo.inOut" }, at + .2);
+    tl.from($$(".e-code .ck", el), { scale: 0, transformOrigin: "50% 50%", duration: .3, stagger: .07, ease: "back.out(3)" }, at + .7);
+  }});
+
+  /* ---------------- 頒獎：現場揭曉小隊 ---------------- */
+  // 每次進入頒獎頁都從「?」開始；結果只留在記憶體，給緊接在後的獎品頁（雞排、健康步道）使用
+  const AW = {};
+  try { localStorage.removeItem("csie-assembly-2026:awards"); } catch {}   // 清掉舊版存下的結果
+  function apply(sl, t) {
+    const rank = sl.dataset.rank;
+    sl.classList.remove("t1", "t2", "t3", "t4");
+    sl.classList.toggle("is-set", !!t);
+    if (t) sl.classList.add("t" + t);
+    $(".aw-slot", sl).textContent = t ? NUM[t] : "?";
+    const tm = TEAMS[t - 1];
+    $(".aw-mem", sl).innerHTML = tm ? `${tm.members.join("、")}　<i>隊輔 ${tm.lead}</i>` : "";
+    $$(".aw-pick button", sl).forEach(b => b.setAttribute("aria-pressed", String(+b.dataset.team === t)));
+    $$(`.prize[data-for="${rank}"]`).forEach(p => {
+      p.classList.remove("t1", "t2", "t3", "t4");
+      p.classList.toggle("is-set", !!t);
+      if (t) p.classList.add("t" + t);
+      $(".pz-tn", p).textContent = t ? `第${NUM[t]}小隊` : "";
+    });
+  }
+  const reset = sl => { sl._rv?.progress(1); AW[sl.dataset.rank] = 0; apply(sl, 0); };
+  $$(".slide.award").forEach(reset);
+  // deck:change 在轉場開始前發出，所以頁面出現時就已經是「?」
+  addEventListener("deck:change", e => { const sl = slides[e.detail.index]; if (sl.matches(".slide.award")) reset(sl); });
+
+  function reveal(sl, t) {
+    if (Deck.busy) return;
+    sl._rv?.progress(1);              // 上一次揭曉動畫還在跑：先讓它結束，避免舊結果蓋掉新結果
+    const old = AW[sl.dataset.rank];
+    AW[sl.dataset.rank] = t; apply(sl, t);
+    if (!t || t === old || Deck.reduced) return;
+    const slot = $(".aw-slot", sl), mem = $(".aw-mem", sl);
+    const seq = []; for (let i = 0; i < 13; i++) seq.push(NUM[(t + i) % 4 + 1]); seq.push(NUM[t]);
+    const st = { i: 0 };
+    const tl = sl._rv = G.timeline({ onComplete() { slot.textContent = NUM[t]; G.set([slot, mem], { clearProps: "all" }); sl._rv = null; } });
+    tl.to(st, { i: seq.length - 1, duration: 1.2, ease: "power3.out", onUpdate() { slot.textContent = seq[Math.round(st.i)]; } }, 0)
+      .fromTo(slot, { scale: 1 }, { scale: 1.25, duration: .12, ease: "power2.out" }, 1.15)
+      .to(slot, { scale: 1, duration: .5, ease: "elastic.out(1, .4)" }, 1.27)
+      .fromTo(mem, { clipPath: C0 }, { clipPath: C1, duration: .9, ease: "expo.out" }, 1.25);
+    const r = rectIn(slot);
+    const col = getComputedStyle(sl).getPropertyValue("--tc").trim() || "#ffbe3d";
+    tl.add(burst(r.x + r.w / 2, r.y + r.h / 2, [col, "#ffbe3d", "#eef2f6"], 40), 1.15);
+  }
+  $$(".aw-pick button").forEach(b => b.addEventListener("click", () => reveal(b.closest(".award"), +b.dataset.team)));
+  addEventListener("keydown", e => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const sl = slides[Deck.index];
+    if (!sl?.classList.contains("aw-slide")) return;
+    if (/^[1-4]$/.test(e.key)) reveal(sl, +e.key);
+    else if (e.key === "0") reset(sl);
+  });
+})();
+</script>
+</body>
+</html>

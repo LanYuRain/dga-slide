@@ -1,0 +1,6 @@
+pymupdf
+pillow
+fonttools
+brotli
+numpy
+zxing-cpp  # 選用：驗證 QR 重畫結果
