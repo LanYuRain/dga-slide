@@ -1,29 +1,27 @@
-# 驗收清單
+# 驗收
 
-## 硬性限制
+## 1. 硬性限制與健全性（必須全過）
+
 - [ ] 每一頁轉場結束後，所有資訊完整可讀（沒有元素停在透明、裁切、位移的中間狀態）
-- [ ] 靜止時文字本體不動；細微動態符合 `motion-principles.md` 第 5 節上限
-- [ ] 每次換頁都有轉場動畫，且手法有變化
+- [ ] 靜止時文字本體不動；細微動態在 `motion-principles.md` 的上限內
+- [ ] 快速連按翻頁、往回翻都不會錯亂
+- [ ] 斷網／CDN 失效時內容仍完整顯示
+- [ ] `prefers-reduced-motion: reduce` 時只剩淡入淡出
+- [ ] 手機直向可等比縮放、可滑動翻頁；網址 `#n` 可直接開到第 n 頁
+- [ ] 數據與事實正確（使用者提供的資料不擅自更動）
 
-## 動態品質
-- [ ] 有明確的主緩動曲線與 beat，節奏一致
-- [ ] 至少一次跨頁元素延續（共享元素／變形）
-- [ ] 進場順序符合資訊層級，每頁只有一個主角動作
-- [ ] 快速連按翻頁不會錯亂（轉場鎖或可中斷的 timeline）
-- [ ] 往回翻頁也有合理的轉場（可用反向或鏡像版本）
+## 2. 作品集標準（誠實自評）
 
-## 健全性
-- [ ] 斷網／CDN 失效時，內容仍完整顯示（預設狀態即靜止狀態）
-- [ ] `prefers-reduced-motion: reduce` 時只用淡入淡出，細微動態關閉
-- [ ] 手機直向時舞台等比縮放、不出現橫向捲軸；可滑動翻頁
-- [ ] 網址 `#n` 可直接開啟第 n 頁，重新整理後停在同一頁
+不是逐項打勾，而是用動態設計總監的眼光看自己的作品：
 
-## 內容
-- [ ] 語氣與資訊密度符合對象
-- [ ] 字級在投影時清楚
-- [ ] 數據與事實正確（使用者提供資料時，不擅自更動）
+- 這份東西放進你的作品集，你敢嗎？
+- 觀眾看完會記得哪一個畫面？如果答不出來，就是還缺一個「招牌時刻」。
+- 哪一次轉場最平庸、最像套模板？重做它。
+- 整份看起來像一支連續的影片，還是一張張換掉的幻燈片？
 
-## 自動截圖檢查（選用）
+找到最弱的一處就修，修完再看一次。
+
+## 截圖檢查（建議）
 
 若環境有 Node，在暫存目錄執行：
 
@@ -32,22 +30,30 @@ npm i -D playwright && npx playwright install chromium
 ```
 
 ```js
-// shot.mjs — node shot.mjs path/to/deck.html
+// shot.mjs — node shot.mjs path/to/deck.html [--mid]
+// 預設擷取每頁靜止狀態；加 --mid 另外擷取轉場過程中的影格，檢查動態編排
 import { chromium } from "playwright";
 const file = "file://" + new URL(process.argv[2], "file://" + process.cwd() + "/").pathname;
+const mid = process.argv.includes("--mid");
 const b = await chromium.launch();
 const p = await b.newPage({ viewport: { width: 1600, height: 900 } });
-await p.goto(file); await p.waitForTimeout(2500);
+await p.goto(file); await p.waitForTimeout(3000);
 const n = await p.evaluate(() => window.Deck?.total ?? 1);
+const id = i => String(i + 1).padStart(2, "0");
 for (let i = 0; i < n; i++) {
   await p.evaluate(i => window.Deck.go(i), i);
-  await p.waitForTimeout(2500);               // 等轉場結束
-  await p.screenshot({ path: `shot-${String(i + 1).padStart(2, "0")}.png` });
+  if (mid) for (const t of [150, 400, 750]) {           // 轉場開始後第 t ms
+    await p.waitForTimeout(t - (t === 150 ? 0 : t === 400 ? 150 : 400));
+    await p.screenshot({ path: `shot-${id(i)}-t${t}.png` });
+  }
+  await p.waitForFunction(() => !window.Deck.busy, null, { timeout: 10000 });
+  await p.waitForTimeout(300);
+  await p.screenshot({ path: `shot-${id(i)}.png` });
 }
 await b.close();
 ```
 
-用 Read 工具檢視截圖，確認每頁的靜止狀態完整、構圖平衡。
+用 Read 工具檢視截圖：靜止圖檢查資訊完整與構圖；過程影格檢查轉場是否真的有編排、而不是一片空白或整頁淡入。
 
 > WSL／無 sudo 環境若 Chromium 報 `libnspr4.so` 等缺函式庫：
 > `apt-get download libnspr4 libnss3 libasound2t64 libatk1.0-0t64 libatk-bridge2.0-0t64 libcups2t64 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libatspi2.0-0t64`，
