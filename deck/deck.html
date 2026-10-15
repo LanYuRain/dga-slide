@@ -299,6 +299,44 @@ html:not(.js) .slide:first-of-type { visibility: visible; }
 .sc-list li:nth-child(6) .bar { left: 590px; width: 50px; }
 .sc-list .dur { position: absolute; right: 0; font: 500 26px/1 var(--mono); color: var(--dim); }
 
+/* ---------------- 延長賽（備用） ---------------- */
+#s-ot .ot-k { position: absolute; left: 120px; top: 96px; }
+#s-ot .ot-title { position: absolute; left: 112px; top: 140px; font: 900 150px/1 var(--sans); letter-spacing: .04em; }
+#s-ot .ot-sub { position: absolute; left: 120px; top: 312px; font: 500 36px/1 var(--sans); color: var(--ink2); }
+#s-ot .ot-g { position: absolute; left: 0; top: 0; width: 1920px; height: 1024px; }
+#s-ot .ot-g path { fill: none; stroke-dasharray: 1; stroke-linecap: round; stroke-linejoin: round; }
+#s-ot .ot-rail { stroke: var(--line2); stroke-width: 4; }
+#s-ot .ot-br { stroke-width: 5; }
+#s-ot .ot-br.a { stroke: var(--cyan); } #s-ot .ot-br.b { stroke: var(--pink); }
+#s-ot .ot-n circle { fill: var(--bg); stroke: var(--ink2); stroke-width: 4; }
+#s-ot .ot-n.big circle { fill: var(--amber); stroke: var(--amber); }
+#s-ot .ot-halo { fill: none; stroke: var(--amber); stroke-width: 3; opacity: .35; animation: halo 3s ease-in-out infinite; }
+@keyframes halo { 50% { opacity: .22; } }
+#s-ot .ot-steps li { position: absolute; left: 196px; display: flex; align-items: baseline; gap: 22px; white-space: nowrap; }
+#s-ot .ot-steps time { width: 108px; font: 600 30px/1.2 var(--mono); color: var(--dim); }
+#s-ot .ot-steps b { font: 800 40px/1.2 var(--sans); }
+#s-ot .ot-steps em { font: 500 24px/1 var(--mono); color: var(--dim); }
+#s-ot .ot-steps .s1 { top: 406px; } #s-ot .ot-steps .s2 { top: 486px; } #s-ot .ot-steps .s3 { top: 566px; }
+#s-ot .ot-steps .s4 { top: 650px; } #s-ot .ot-steps .s5 { top: 846px; }
+#s-ot .ot-steps .s4 time { color: var(--amber); }
+#s-ot .ot-steps .s4 b { font-size: 60px; font-weight: 900; color: var(--amber); }
+#s-ot .ot-steps .s4 em { color: var(--amber); }
+#s-ot .ot-card { position: absolute; left: 760px; width: 1040px; height: 424px; padding: 28px 36px 0 34px;
+  background: var(--panel); border: 1px solid var(--line); border-left: 6px solid var(--bc); border-radius: 16px; }
+#s-ot .ot-card.a { top: 96px; --bc: var(--cyan); } #s-ot .ot-card.b { top: 556px; --bc: var(--pink); }
+#s-ot .ot-h { display: flex; align-items: center; gap: 18px; }
+#s-ot .ot-tag { padding: 9px 13px; border-radius: 6px; background: var(--bc); color: #0a0d11; font: 700 24px/1 var(--mono); }
+#s-ot .ot-h b { font: 900 50px/1 var(--sans); }
+#s-ot .ot-h em { margin-left: auto; font: 800 32px/1 var(--sans); color: var(--bc); }
+#s-ot .ot-meta { margin-top: 16px; font: 500 27px/1.3 var(--sans); color: var(--dim); }
+#s-ot .ot-card dl { margin-top: 16px; border-top: 1px solid var(--line); }
+#s-ot .ot-card dl > div { display: grid; grid-template-columns: 136px 1fr; align-items: baseline; padding: 13px 0; border-bottom: 1px solid var(--line); }
+#s-ot .ot-card dt { font: 700 30px/1.35 var(--sans); color: var(--ink2); }
+#s-ot .ot-card dd { font: 500 30px/1.35 var(--sans); white-space: nowrap; }
+#s-ot .ot-card dd code { margin-right: 14px; font: 600 25px/1 var(--mono); color: var(--dim); }
+#s-ot .ot-card dd b { font-weight: 800; color: var(--bc); }
+#s-ot .ot-note { margin-top: 12px; font: 500 25px/1.3 var(--sans); color: var(--dim); }
+
 /* ---------------- 頒獎 ---------------- */
 .award .aw-digit { position: absolute; left: 80px; top: 112px; width: 580px; height: 820px; overflow: hidden; }
 .award .aw-digit span { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;
@@ -559,6 +597,50 @@ html:not(.js) .slide:first-of-type { visibility: visible; }
     <li class="g"><time>20:20 – 20:30</time><b>團康活動 · 時段 3</b><span class="tr"><i class="bar"></i></span><em class="dur">10 min</em></li>
     <li class="move"><time>20:30 – 20:35</time><b>回 EB111</b><span class="tr"><i class="bar"></i></span><em class="dur">5 min</em></li>
   </ol>
+</section>
+
+<!-- ======================= 延長賽（備用：團康結束後若有平手；沒有延長賽就直接翻過） ======================= -->
+<section class="slide" id="s-ot" data-transition="clear" data-sec="ot" data-item="延長賽" data-at="160">
+  <p class="ot-k k">if 平手:  <span class="mute"># 備用規則</span></p>
+  <h2 class="ot-title">延長賽</h2>
+  <p class="ot-sub">團康結束後若有隊伍平手</p>
+  <svg class="ot-g" viewBox="0 0 1920 1024" aria-hidden="true">
+    <path class="ot-rail" d="M150 430V870" pathLength="1"/>
+    <path class="ot-br a" d="M640 690H692Q712 690 712 670V328Q712 308 732 308H760" pathLength="1"/>
+    <path class="ot-br b" d="M640 690H692Q712 690 712 710V748Q712 768 732 768H760" pathLength="1"/>
+    <g class="ot-n"><circle cx="150" cy="430" r="11"/></g>
+    <g class="ot-n"><circle cx="150" cy="510" r="11"/></g>
+    <g class="ot-n"><circle cx="150" cy="590" r="11"/></g>
+    <g class="ot-n big"><circle class="ot-halo" cx="150" cy="690" r="30"/><circle cx="150" cy="690" r="16"/></g>
+    <g class="ot-n"><circle cx="150" cy="870" r="11"/></g>
+  </svg>
+  <ol class="ot-steps">
+    <li class="s1"><time>20:40</time><b>集合</b><em>3 min</em></li>
+    <li class="s2"><time>20:43</time><b>公布 &amp; 抽籤</b><em>2 min</em></li>
+    <li class="s3"><time>20:45</time><b>移動／緩衝</b><em>3 min</em></li>
+    <li class="s4"><time>20:48</time><b>延長賽</b><em>10 min</em></li>
+    <li class="s5"><time>20:58</time><b>公布 &amp; 頒獎</b><em>7 min</em></li>
+  </ol>
+  <div class="ot-card a">
+    <p class="ot-h"><span class="ot-tag">情況 1</span><b>三隊平手</b><em>爭第 2、3、4 名</em></p>
+    <p class="ot-meta">使用遊戲 2 · EB111（場地較大）· 同一場地連打兩小局</p>
+    <dl>
+      <div><dt>抽籤</dt><dd>平手的三隊抽出 2 隊先打，沒抽到的 1 隊為<b>種子隊</b></dd></div>
+      <div><dt>上半場</dt><dd><code>20:48–20:52</code>抽中的兩隊 PK → 輸的確定<b>第 4 名</b></dd></div>
+      <div><dt>下半場</dt><dd><code>20:53–20:57</code>勝隊 vs 種子隊 → 贏的<b>第 2 名</b>、輸的<b>第 3 名</b></dd></div>
+    </dl>
+    <p class="ot-note">緩衝時間：已確定冠軍的小隊可留在 EB111 休息或觀戰</p>
+  </div>
+  <div class="ot-card b">
+    <p class="ot-h"><span class="ot-tag">情況 2</span><b>兩組平手</b><em>爭第 1、2 名 · 第 3、4 名</em></p>
+    <p class="ot-meta">移動到抽到的遊戲場地，玩 8～10 分鐘縮短版，一局定勝負</p>
+    <dl>
+      <div><dt>抽遊戲</dt><dd>冠軍戰先抽 1 個遊戲，季軍戰從剩下的 2 個再抽 1 個</dd></div>
+      <div><dt>冠軍戰</dt><dd>贏的<b>第 1 名</b>、輸的<b>第 2 名</b></dd></div>
+      <div><dt>季軍戰</dt><dd>贏的<b>第 3 名</b>、輸的<b>第 4 名</b></dd></div>
+    </dl>
+    <p class="ot-note">不放回抽籤，兩組不會撞在同一關</p>
+  </div>
 </section>
 
 <!-- ======================= 系員交流 & 頒獎 20:35–21:00 ======================= -->
@@ -893,6 +975,7 @@ html:not(.js) .slide:first-of-type { visibility: visible; }
     rest:  { n: "休息", t: "19:20–19:30", c: "#9a8cff", bg: "#191b40" },
     games: { n: "團康活動", t: "19:30–20:30", c: "#ff5c9d", bg: "#ff5c9d" },
     award: { n: "系員交流 & 頒獎", t: "20:35–21:00", c: "#ffbe3d", bg: "#ffbe3d" },
+    ot:    { n: "延長賽（備用）", t: "20:40–21:05", on: ["award"] },
   };
   const ST = { wait: "WAIT", run: "RUN", sleep: "SLEEP", done: "EXIT 0" };
 
@@ -910,7 +993,7 @@ html:not(.js) .slide:first-of-type { visibility: visible; }
     $(".sx", crumb).style.display = item ? "" : "none";
     crumb.classList.remove("bump"); void crumb.offsetWidth; crumb.classList.add("bump");
     $(".sb-time", sb).textContent = SEC[sec]?.t ?? "";
-    $$(".sg", sb).forEach(g => g.classList.toggle("on", g.dataset.k === sec || sec === "pre" || sec === "open"));
+    $$(".sg", sb).forEach(g => g.classList.toggle("on", (SEC[sec]?.on || [sec]).includes(g.dataset.k) || sec === "pre" || sec === "open"));
     sb.style.setProperty("--p", Math.min(1, (+s.dataset.at || 0) / 180));
     $(".sb-n", sb).innerHTML = `<b>${pad(index + 1)}</b> / ${pad(total)}`;
     // 預先解碼接下來的原簡報頁，讓渲染轉場順暢
@@ -1377,6 +1460,27 @@ html:not(.js) .slide:first-of-type { visibility: visible; }
       wipe(tl, $("b", li), t + .08, { d: .6 });
       tl.from($(".bar", li), { scaleX: 0, transformOrigin: "0 50%", duration: .7, ease: "expo.out" }, t + .15);
       tl.from($(".dur", li), { autoAlpha: 0, duration: .3 }, t + .3);
+    });
+  }});
+
+  // 延長賽：時程沿主線往下，到「延長賽」分岔成兩種情況
+  Deck.scene("s-ot", { enter(tl, el, dir, at) {
+    type(tl, $(".ot-k", el), at, 50);
+    scramble(tl, $(".ot-title", el), at, .5);
+    wipe(tl, $(".ot-sub", el), at + .2, { d: .7 });
+    tl.fromTo($(".ot-rail", el), { strokeDashoffset: 1 }, { strokeDashoffset: 0, duration: 1.1, ease: "power2.inOut" }, at + .2);
+    const nodes = $$(".ot-n", el), steps = $$(".ot-steps li", el);
+    nodes.forEach((n, i) => {
+      const t = at + .25 + i * .2;
+      tl.from(n, { scale: 0, transformOrigin: "50% 50%", duration: .45, ease: "back.out(3)" }, t);
+      wipe(tl, steps[i], t + .05, { d: .6 });
+    });
+    const t4 = at + 1.05;
+    tl.fromTo($$(".ot-br", el), { strokeDashoffset: 1 }, { strokeDashoffset: 0, duration: .6, ease: "power2.inOut", stagger: .12 }, t4);
+    $$(".ot-card", el).forEach((c, i) => {
+      const t = t4 + .45 + i * .15;
+      tl.fromTo(c, { clipPath: "inset(0% 100% 0% 0%)" }, { clipPath: "inset(0% 0% 0% 0%)", duration: .75, ease: "expo.inOut" }, t);
+      wipe(tl, $$(".ot-h, .ot-meta, dl > div, .ot-note", c), t + .35, { d: .6, st: .07 });
     });
   }});
 
